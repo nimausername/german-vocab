@@ -87,6 +87,33 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    func loadWords(
+        page: Int,
+        limit: Int = 50,
+        search: String? = nil,
+        cefrLevel: String? = nil,
+        gender: String? = nil,
+        status: WordListStatus = .all
+    ) async throws -> WordListPage {
+        try await withAuthRetry { token in
+            try await client.words(
+                token: token,
+                page: page,
+                limit: limit,
+                search: search,
+                cefrLevel: cefrLevel,
+                gender: gender,
+                status: status
+            )
+        }
+    }
+
+    func loadWord(id: String) async throws -> LexiconWord {
+        try await withAuthRetry { token in
+            try await client.word(token: token, id: id)
+        }
+    }
+
     private func persist(_ tokens: TokenPayload) {
         accessToken = tokens.accessToken
         refreshToken = tokens.refreshToken

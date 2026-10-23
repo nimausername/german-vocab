@@ -10,6 +10,7 @@ import { authRoutes } from './routes/auth.js'
 import { planRoutes } from './routes/plans.js'
 import { reviewRoutes } from './routes/reviews.js'
 import { statsRoutes } from './routes/stats.js'
+import { wordRoutes } from './routes/words.js'
 
 type AppVariables = {
   requestId: string
@@ -43,6 +44,7 @@ app.route('/v1/auth', authRoutes)
 app.route('/v1/plans', planRoutes)
 app.route('/v1/reviews', reviewRoutes)
 app.route('/v1/stats', statsRoutes)
+app.route('/v1/words', wordRoutes)
 
 app.onError((error, c) => {
   const requestId = c.get('requestId') ?? randomUUID()

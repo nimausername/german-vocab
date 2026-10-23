@@ -99,19 +99,22 @@ struct StudyView: View {
         VStack(spacing: 18) {
             KindLabel(isNew: current.isNew)
 
-            Text(current.lemma)
-                .font(AppTheme.lemma(56))
-                .foregroundStyle(AppTheme.ink)
-                .multilineTextAlignment(.center)
-                .minimumScaleFactor(0.65)
-                .lineLimit(2)
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                if let article = current.article {
+                    Text(article)
+                        .font(AppTheme.lemma(56))
+                        .foregroundStyle(AppTheme.genderColor(for: article))
+                }
 
-            if let gender = current.gender {
-                Text(gender)
-                    .font(AppTheme.caption())
-                    .tracking(1.0)
-                    .foregroundStyle(AppTheme.genderColor(for: gender))
+                Text(current.displayNoun)
+                    .font(AppTheme.lemma(56))
+                    .foregroundStyle(AppTheme.ink)
+                    .minimumScaleFactor(0.65)
+                    .lineLimit(2)
             }
+            .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(current.headwordWithArticle)
 
             if revealed {
                 VStack(spacing: 16) {
@@ -122,6 +125,19 @@ struct StudyView: View {
                         .font(AppTheme.display(28, weight: .medium))
                         .foregroundStyle(AppTheme.inkSoft)
                         .multilineTextAlignment(.center)
+
+                    if let article = current.article {
+                        Text(current.headwordWithArticle)
+                            .font(AppTheme.headline())
+                            .foregroundStyle(AppTheme.genderColor(for: article))
+                            .accessibilityLabel("Remember: \(current.headwordWithArticle)")
+                    }
+
+                    if let plural = current.plural, !plural.isEmpty {
+                        Text("Plural: \(plural)")
+                            .font(AppTheme.caption())
+                            .foregroundStyle(AppTheme.inkSoft)
+                    }
 
                     VStack(spacing: 8) {
                         Text(current.exampleDe)
@@ -137,7 +153,7 @@ struct StudyView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 
     private var sessionComplete: some View {

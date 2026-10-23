@@ -25,6 +25,11 @@ struct MainTabView: View {
                     Label("Today", systemImage: "sun.max")
                 }
 
+            WordsView()
+                .tabItem {
+                    Label("Words", systemImage: "text.book.closed")
+                }
+
             StatsView()
                 .tabItem {
                     Label("Stats", systemImage: "chart.bar")

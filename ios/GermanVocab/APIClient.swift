@@ -21,13 +21,11 @@ final class APIClient {
     private let baseURL: URL
     private let session: URLSession
     private let decoder: JSONDecoder
-    private let encoder: JSONEncoder
 
     init(baseURL: URL = AppConfig.apiBaseURL) {
         self.baseURL = baseURL
         self.session = URLSession.shared
         self.decoder = JSONDecoder()
-        self.encoder = JSONEncoder()
     }
 
     func login(username: String, password: String) async throws -> TokenPayload {
@@ -71,13 +69,54 @@ final class APIClient {
         try await get(path: "/v1/stats", token: token)
     }
 
-    private func makeURL(_ path: String) -> URL {
-        let trimmed = path.hasPrefix("/") ? String(path.dropFirst()) : path
-        return baseURL.appendingPathComponent(trimmed)
+    func words(
+        token: String,
+        page: Int,
+        limit: Int,
+        search: String?,
+        cefrLevel: String?,
+        gender: String?,
+        status: WordListStatus
+    ) async throws -> WordListPage {
+        var query: [URLQueryItem] = [
+            URLQueryItem(name: "page", value: String(page)),
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "status", value: status.rawValue),
+        ]
+        if let search, !search.isEmpty {
+            query.append(URLQueryItem(name: "search", value: search))
+        }
+        if let cefrLevel, !cefrLevel.isEmpty {
+            query.append(URLQueryItem(name: "cefrLevel", value: cefrLevel))
+        }
+        if let gender, !gender.isEmpty {
+            query.append(URLQueryItem(name: "gender", value: gender))
+        }
+        return try await get(path: "/v1/words", query: query, token: token)
     }
 
-    private func get<T: Decodable>(path: String, token: String?) async throws -> T {
-        var request = URLRequest(url: makeURL(path))
+    func word(token: String, id: String) async throws -> LexiconWord {
+        try await get(path: "/v1/words/\(id)", token: token)
+    }
+
+    private func makeURL(_ path: String, query: [URLQueryItem] = []) -> URL {
+        let trimmed = path.hasPrefix("/") ? String(path.dropFirst()) : path
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent(trimmed),
+            resolvingAgainstBaseURL: false
+        )!
+        if !query.isEmpty {
+            components.queryItems = query
+        }
+        return components.url!
+    }
+
+    private func get<T: Decodable>(
+        path: String,
+        query: [URLQueryItem] = [],
+        token: String?
+    ) async throws -> T {
+        var request = URLRequest(url: makeURL(path, query: query))
         request.httpMethod = "GET"
         if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
