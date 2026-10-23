@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+backend/.env
+*.log
+.DS_Store
+.pnpm-store/
+backend/drizzle/meta/
+ios/DerivedData/
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
+.idea/
+.vscode/
+*.pem
+*.p12

@@ -1,0 +1,36 @@
+{
+  "name": "german-vocab-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "start:dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "db:push": "drizzle-kit push",
+    "db:seed": "tsx src/scripts/seed.ts",
+    "db:setup": "pnpm db:push && pnpm db:seed"
+  },
+  "packageManager": "pnpm@12.15.0",
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "dotenv": "^18.0.8",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.13",
+    "jose": "^6.2.13",
+    "postgres": "^3.4.9",
+    "ts-fsrs": "^5.4.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

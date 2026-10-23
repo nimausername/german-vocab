@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+drizzle/meta
+*.log
+.DS_Store
+.pnpm-store
+README.md
+COOLIFY.md

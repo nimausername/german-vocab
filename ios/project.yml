@@ -1,0 +1,23 @@
+name: GermanVocab
+options:
+  bundleIdPrefix: de.nimakhabbazi
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  BASE_SDK: iphoneos
+targets:
+  GermanVocab:
+    type: application
+    platform: iOS
+    sources:
+      - GermanVocab
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: de.nimakhabbazi.germanvocab
+      TARGETED_DEVICE_FAMILY: "2"
+      INFOPLIST_FILE: GermanVocab/Info.plist
+      GENERATE_INFOPLIST_FILE: false
+      SWIFT_VERSION: "5.0"
+      DEVELOPMENT_TEAM: KK43VTCM64
+      CODE_SIGN_IDENTITY: "iPhone Developer"
+    info:
+      path: GermanVocab/Info.plist
