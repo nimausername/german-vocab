@@ -7,13 +7,11 @@ struct RootView: View {
         Group {
             if session.isAuthenticated {
                 MainTabView()
-                    .transition(.opacity)
             } else {
                 LoginView()
-                    .transition(.opacity)
             }
         }
-        .animation(AppTheme.reveal, value: session.isAuthenticated)
+        .animation(.default, value: session.isAuthenticated)
     }
 }
 
@@ -40,6 +38,5 @@ struct MainTabView: View {
                     Label("Settings", systemImage: "gearshape")
                 }
         }
-        .tint(AppTheme.accent)
     }
 }

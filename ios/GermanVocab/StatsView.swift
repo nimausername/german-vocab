@@ -30,48 +30,44 @@ struct StatsView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .background(AppTheme.wash)
             .navigationTitle("Stats")
             .navigationBarTitleDisplayMode(.large)
             .task { await load() }
             .refreshable { await load() }
-            .tint(AppTheme.accent)
         }
     }
 
     private func statsList(_ stats: UserStats) -> some View {
         List {
             Section("Streak") {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text("\(stats.streak)")
-                        .font(AppTheme.display(52, weight: .semibold))
-                        .foregroundStyle(AppTheme.ink)
-                        .contentTransition(.numericText())
-                    Text("days")
-                        .font(AppTheme.headline())
-                        .foregroundStyle(AppTheme.inkSoft)
+                LabeledContent("Current streak") {
+                    Text("\(stats.streak) days")
+                        .font(.title2.bold())
+                        .monospacedDigit()
                 }
-                .padding(.vertical, 4)
-                .accessibilityElement(children: .combine)
                 .accessibilityLabel("\(stats.streak) day streak")
             }
 
             Section("Lexicon") {
-                HStack(spacing: 20) {
-                    LearningRing(progress: learnProgress)
-                        .frame(width: 72, height: 72)
+                HStack(spacing: 16) {
+                    Gauge(value: learnProgress) {
+                        Text("Learned")
+                    } currentValueLabel: {
+                        Text("\(Int((learnProgress * 100).rounded()))%")
+                    }
+                    .gaugeStyle(.accessoryCircularCapacity)
+                    .tint(AppTheme.accent)
 
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("\(stats.wordsLearned) of \(stats.wordsTotal)")
-                            .font(AppTheme.display(24, weight: .semibold))
-                            .foregroundStyle(AppTheme.ink)
-                        Text("\(stats.matureCards) mature · \(Int((learnProgress * 100).rounded()))% learned")
-                            .font(AppTheme.caption())
-                            .foregroundStyle(AppTheme.muted)
+                            .font(.title2.bold())
+                        Text("\(stats.matureCards) mature")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .padding(.vertical, 4)
                 .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(stats.wordsLearned) of \(stats.wordsTotal) words learned")
             }
 
             Section("Activity") {
@@ -83,11 +79,10 @@ struct StatsView: View {
             if let errorMessage {
                 Section {
                     Text(errorMessage)
-                        .foregroundStyle(AppTheme.danger)
+                        .foregroundStyle(.red)
                 }
             }
         }
-        .listStyle(.insetGrouped)
     }
 
     private func load() async {

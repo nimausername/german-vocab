@@ -15,59 +15,52 @@ struct LoginView: View {
             Form {
                 Section {
                     TextField("Username", text: $username)
+                        .textContentType(.username)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .focused($focusedField, equals: .username)
                         .submitLabel(.next)
                         .onSubmit { focusedField = .password }
-                        .accessibilityLabel("Username")
 
                     SecureField("Password", text: $password)
+                        .textContentType(.password)
                         .focused($focusedField, equals: .password)
                         .submitLabel(.go)
                         .onSubmit { Task { await signIn() } }
-                        .accessibilityLabel("Password")
-                } header: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("German Vocab")
-                            .font(AppTheme.display(34, weight: .semibold))
-                            .foregroundStyle(AppTheme.ink)
-                            .textCase(nil)
-                        Text("Daily German, scheduled with care.")
-                            .font(AppTheme.body())
-                            .foregroundStyle(AppTheme.muted)
-                            .textCase(nil)
-                    }
-                    .padding(.bottom, 12)
-                    .accessibilityElement(children: .combine)
                 } footer: {
-                    if let errorMessage = session.errorMessage {
-                        Text(errorMessage)
-                            .foregroundStyle(AppTheme.danger)
-                    }
-                }
-
-                Section {
-                    Button {
-                        Task { await signIn() }
-                    } label: {
-                        if session.isBusy {
-                            ProgressView()
-                                .frame(maxWidth: .infinity)
-                        } else {
-                            Text("Sign in")
-                                .frame(maxWidth: .infinity)
-                                .fontWeight(.semibold)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Daily German, scheduled with care.")
+                        if let errorMessage = session.errorMessage {
+                            Text(errorMessage)
+                                .foregroundStyle(.red)
                         }
                     }
-                    .disabled(!canSubmit || session.isBusy)
-                    .accessibilityLabel("Sign in")
                 }
             }
             .formStyle(.grouped)
+            .navigationTitle("German Vocab")
+            .navigationBarTitleDisplayMode(.large)
             .scrollDismissesKeyboard(.interactively)
-            .tint(AppTheme.accent)
-            .toolbar(.hidden, for: .navigationBar)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Button {
+                    Task { await signIn() }
+                } label: {
+                    Group {
+                        if session.isBusy {
+                            ProgressView()
+                        } else {
+                            Text("Sign in")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(!canSubmit || session.isBusy)
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(.bar)
+            }
         }
     }
 

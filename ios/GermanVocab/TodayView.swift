@@ -26,7 +26,6 @@ struct TodayView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .background(AppTheme.wash)
             .navigationTitle("Today")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -47,7 +46,6 @@ struct TodayView: View {
                     StudyView(initialQueue: plan.queue)
                 }
             }
-            .tint(AppTheme.accent)
         }
     }
 
@@ -55,98 +53,60 @@ struct TodayView: View {
     private func planList(_ plan: TodayPlan) -> some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(formattedDate(plan.planDate))
-                        .font(AppTheme.caption())
-                        .foregroundStyle(AppTheme.muted)
-
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text("\(plan.streak)")
-                            .font(AppTheme.display(52, weight: .semibold))
-                            .foregroundStyle(AppTheme.ink)
-                            .contentTransition(.numericText())
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("day streak")
-                                .font(AppTheme.headline())
-                                .foregroundStyle(AppTheme.inkSoft)
-                            Text(plan.queue.isEmpty ? "You’re clear for today." : "Keep the chain alive.")
-                                .font(AppTheme.caption())
-                                .foregroundStyle(AppTheme.muted)
-                        }
-                    }
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text("\(plan.streak) day streak")
+                        .font(.largeTitle.bold())
+                        .contentTransition(.numericText())
+                    Text(plan.queue.isEmpty ? "You’re clear for today." : "Keep the chain alive.")
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 4)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("\(plan.streak) day streak")
             }
 
             Section("Queue") {
-                HStack(spacing: 0) {
-                    metric("Reviews", value: plan.reviewDue)
-                    metric("New left", value: plan.newRemaining)
-                    metric("Queue", value: plan.queue.count)
-                }
-                .padding(.vertical, 4)
+                LabeledContent("Reviews", value: "\(plan.reviewDue)")
+                LabeledContent("New left", value: "\(plan.newRemaining)")
+                LabeledContent("In this session", value: "\(plan.queue.count)")
             }
 
-            Section {
+            Section("Session") {
                 if plan.queue.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Session complete")
-                            .font(AppTheme.headline())
-                        Text("Come back tomorrow for the next set.")
-                            .font(AppTheme.body())
-                            .foregroundStyle(AppTheme.muted)
-                    }
-                    .padding(.vertical, 4)
+                    Text("Come back tomorrow for the next set.")
+                        .foregroundStyle(.secondary)
                 } else {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Ready when you are")
-                            .font(AppTheme.headline())
-                        Text("\(plan.queue.count) cards · about \(estimatedMinutes(plan.queue.count)) min")
-                            .font(AppTheme.body())
-                            .foregroundStyle(AppTheme.muted)
-
-                        Button {
-                            showStudy = true
-                        } label: {
-                            Text("Start session")
-                                .font(AppTheme.headline())
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(AppTheme.ink)
-                        .accessibilityLabel("Start session")
-                    }
-                    .padding(.vertical, 4)
+                    LabeledContent("Cards", value: "\(plan.queue.count)")
+                    LabeledContent("About", value: "\(estimatedMinutes(plan.queue.count)) min")
                 }
             }
 
             if let errorMessage {
                 Section {
                     Text(errorMessage)
-                        .foregroundStyle(AppTheme.danger)
+                        .foregroundStyle(.red)
                 }
             }
         }
-        .listStyle(.insetGrouped)
-    }
-
-    private func metric(_ title: String, value: Int) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title.uppercased())
-                .font(AppTheme.micro())
-                .tracking(0.6)
-                .foregroundStyle(AppTheme.muted)
-            Text("\(value)")
-                .font(AppTheme.display(32, weight: .semibold))
-                .foregroundStyle(AppTheme.ink)
-                .contentTransition(.numericText())
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if !plan.queue.isEmpty {
+                Button {
+                    showStudy = true
+                } label: {
+                    Text("Start session")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .frame(maxWidth: 420)
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(.bar)
+                .accessibilityLabel("Start session")
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title): \(value)")
     }
 
     private func load() async {
@@ -167,9 +127,7 @@ struct TodayView: View {
         parser.dateFormat = "yyyy-MM-dd"
         guard let date = parser.date(from: raw) else { return raw }
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE, d MMMM"
-        return formatter.string(from: date)
+        return date.formatted(.dateTime.weekday(.wide).day().month(.wide))
     }
 
     private func estimatedMinutes(_ count: Int) -> Int {

@@ -106,7 +106,7 @@ enum Rating: Int {
     case easy = 4
 }
 
-struct WordProgress: Decodable {
+struct WordProgress: Decodable, Hashable {
     let learned: Bool
     let cardId: String?
     let reps: Int
@@ -194,7 +194,7 @@ enum WordGenderFilter: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .all: return "All articles"
+        case .all: return "All"
         case .der, .die, .das: return rawValue
         }
     }

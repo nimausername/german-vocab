@@ -9,7 +9,7 @@ struct SettingsView: View {
                 Section {
                     LabeledContent("API base URL") {
                         Text(AppConfig.apiBaseURL.absoluteString)
-                            .foregroundStyle(AppTheme.inkSoft)
+                            .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                             .multilineTextAlignment(.trailing)
                     }
@@ -23,13 +23,11 @@ struct SettingsView: View {
                     Button("Sign out", role: .destructive) {
                         session.logout()
                     }
-                    .accessibilityLabel("Sign out")
                 }
             }
             .formStyle(.grouped)
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
-            .tint(AppTheme.accent)
         }
     }
 }

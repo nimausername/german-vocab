@@ -9,7 +9,6 @@ struct GermanVocabApp: App {
             RootView()
                 .environmentObject(session)
                 .tint(AppTheme.accent)
-                .preferredColorScheme(.light)
         }
     }
 }

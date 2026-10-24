@@ -13,105 +13,127 @@ struct WordsView: View {
     @State private var isLoading = false
     @State private var isLoadingMore = false
     @State private var errorMessage: String?
-    @State private var selectedWord: LexiconWord?
+    @State private var selectedWordID: String?
+
+    private var filtersAreActive: Bool {
+        status != .all || gender != .all
+    }
+
+    private var selectedWord: LexiconWord? {
+        guard let selectedWordID else { return nil }
+        return words.first { $0.id == selectedWordID }
+    }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if isLoading && words.isEmpty {
-                    ProgressView("Loading words")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if words.isEmpty, errorMessage == nil {
-                    ContentUnavailableView(
-                        "No words found",
-                        systemImage: "text.book.closed",
-                        description: Text("Try another search or filter.")
-                    )
-                } else {
-                    wordList
-                }
+        NavigationSplitView {
+            sidebar
+        } detail: {
+            if let selectedWord {
+                WordDetailView(word: selectedWord)
+            } else {
+                ContentUnavailableView(
+                    "No word selected",
+                    systemImage: "text.book.closed",
+                    description: Text("Choose a word from the list.")
+                )
             }
-            .background(AppTheme.wash)
-            .navigationTitle("Words")
-            .navigationBarTitleDisplayMode(.large)
-            .searchable(text: $searchText, prompt: "Search German or English")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Text("\(total)")
-                        .font(AppTheme.caption())
-                        .foregroundStyle(AppTheme.muted)
-                        .accessibilityLabel("\(total) words")
-                }
-            }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                filterBar
-            }
-            .task(id: filterKey) {
-                await reload()
-            }
-            .refreshable { await reload() }
-            .sheet(item: $selectedWord) { word in
-                WordDetailView(word: word)
-            }
-            .tint(AppTheme.accent)
         }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    private var sidebar: some View {
+        Group {
+            if isLoading && words.isEmpty {
+                ProgressView("Loading words")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let errorMessage, words.isEmpty {
+                ContentUnavailableView(
+                    "Couldn’t load words",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(errorMessage)
+                )
+            } else if words.isEmpty {
+                ContentUnavailableView(
+                    "No words found",
+                    systemImage: "text.book.closed",
+                    description: Text("Try another search or filter.")
+                )
+            } else {
+                wordList
+            }
+        }
+        .navigationTitle("Words")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $searchText, prompt: "Search German or English")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                filterMenu
+            }
+        }
+        .task(id: filterKey) {
+            await reload()
+        }
+        .refreshable { await reload() }
     }
 
     private var filterKey: String {
         "\(status.rawValue)|\(gender.rawValue)|\(searchText)"
     }
 
-    private var filterBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(WordListStatus.allCases) { item in
-                    FilterChip(
-                        title: item.title,
-                        isSelected: status == item
-                    ) {
-                        status = item
-                    }
-                }
-
-                Divider()
-                    .frame(height: 20)
-
-                ForEach(WordGenderFilter.allCases) { item in
-                    FilterChip(
-                        title: item.title,
-                        isSelected: gender == item,
-                        tint: item == .all ? AppTheme.accent : AppTheme.genderColor(for: item.rawValue)
-                    ) {
-                        gender = item
-                    }
+    private var filterMenu: some View {
+        Menu {
+            if filtersAreActive {
+                Button("Clear Filters", systemImage: "xmark.circle") {
+                    status = .all
+                    gender = .all
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+
+            Picker("Status", selection: $status) {
+                ForEach(WordListStatus.allCases) { item in
+                    Text(item.title).tag(item)
+                }
+            }
+            .pickerStyle(.inline)
+
+            Picker("Article", selection: $gender) {
+                ForEach(WordGenderFilter.allCases) { item in
+                    Text(item.title).tag(item)
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            Label(
+                "Filter",
+                systemImage: filtersAreActive
+                    ? "line.3.horizontal.decrease.circle.fill"
+                    : "line.3.horizontal.decrease.circle"
+            )
         }
-        .background(AppTheme.wash.opacity(0.98))
+        .accessibilityValue("\(status.title), \(gender.title)")
     }
 
     private var wordList: some View {
-        List {
+        List(selection: $selectedWordID) {
             if let errorMessage {
-                Text(errorMessage)
-                    .font(AppTheme.caption())
-                    .foregroundStyle(AppTheme.danger)
+                Section {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
+                }
             }
 
-            ForEach(words) { word in
-                Button {
-                    selectedWord = word
-                } label: {
+            Section {
+                ForEach(words) { word in
                     WordRow(word: word)
+                        .tag(word.id)
+                        .onAppear {
+                            if word.id == words.last?.id {
+                                Task { await loadMore() }
+                            }
+                        }
                 }
-                .buttonStyle(.plain)
-                .onAppear {
-                    if word.id == words.last?.id {
-                        Task { await loadMore() }
-                    }
-                }
+            } header: {
+                Text("\(total) words")
             }
 
             if isLoadingMore {
@@ -122,7 +144,6 @@ struct WordsView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
     }
 
     private func reload() async {
@@ -142,6 +163,9 @@ struct WordsView: View {
             total = result.total
             page = result.page
             hasMore = result.hasMore
+            if let selectedWordID, !words.contains(where: { $0.id == selectedWordID }) {
+                self.selectedWordID = nil
+            }
         } catch {
             errorMessage = error.localizedDescription
             words = []
@@ -174,66 +198,40 @@ struct WordsView: View {
     }
 }
 
-private struct FilterChip: View {
-    let title: String
-    let isSelected: Bool
-    var tint: Color = AppTheme.accent
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(AppTheme.caption())
-                .foregroundStyle(isSelected ? .white : AppTheme.inkSoft)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(isSelected ? tint : Color.primary.opacity(0.06))
-                )
-        }
-        .buttonStyle(AppPressStyle())
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-}
-
 private struct WordRow: View {
     let word: LexiconWord
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
                     if let article = word.article {
                         Text(article)
-                            .font(AppTheme.headline())
                             .foregroundStyle(AppTheme.genderColor(for: article))
                     }
                     Text(word.displayNoun)
-                        .font(AppTheme.headline())
-                        .foregroundStyle(AppTheme.ink)
+                        .foregroundStyle(.primary)
                 }
+                .font(.body)
 
                 Text(word.glossEn)
-                    .font(AppTheme.caption())
-                    .foregroundStyle(AppTheme.muted)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
 
             Spacer(minLength: 8)
 
-            VStack(alignment: .trailing, spacing: 6) {
+            VStack(alignment: .trailing, spacing: 4) {
                 Text(word.cefrLevel)
-                    .font(AppTheme.micro())
-                    .foregroundStyle(AppTheme.muted)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 Text(word.progress.learned ? "Learned" : "New")
-                    .font(AppTheme.micro())
-                    .foregroundStyle(word.progress.learned ? AppTheme.positive : AppTheme.warning)
+                    .font(.caption)
+                    .foregroundStyle(word.progress.learned ? Color.green : Color.orange)
             }
         }
-        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(word.headwordWithArticle), \(word.glossEn)")
     }

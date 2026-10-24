@@ -7,24 +7,27 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		09DB79A39F5EE492DF2F9458 /* ClozeSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075E45E09857E534BDF2BEA8 /* ClozeSupport.swift */; };
 		111ABD4CDFF41A1B8CC30413 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8604458387A92E97258214B0 /* RootView.swift */; };
+		43E525BF9853B95A1262FCF0 /* PencilCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2F064B04BB9B457CF72556B /* PencilCanvasView.swift */; };
 		45DBED8B568B91EE5BC23939 /* WordsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51AD6E876B0ECEFCDD71895D /* WordsView.swift */; };
 		5288D80FF693E7D43FE36B6C /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B73A18ECDBB0CEA658465E1 /* TodayView.swift */; };
 		5388AFBABBD184CF4D6A1646 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13F1ED7C329A66340935EC08 /* Config.swift */; };
 		561AB8A7825E85FE34A18E5B /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5574A69AD2A82F1397E5D276 /* Models.swift */; };
 		88AEEA92B749433096F7AF2F /* GermanVocabApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2130118127DCD0F03E9C3E /* GermanVocabApp.swift */; };
+		9338C2C65668A2B0C6C8A716 /* HandwritingRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 833466D1E80DDB1510777BE1 /* HandwritingRecognizer.swift */; };
 		97C71D04D2762A9EF0163855 /* StudyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A8B7BEAA6DD7A738EBFCCC5 /* StudyView.swift */; };
 		A766CD9BEAD60F4DBCF28906 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6351C2778F15D05CD6BDFB0C /* StatsView.swift */; };
 		B0B00F37FD0AB7A720F4B964 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C61D3C87E7796086A5B20E2E /* APIClient.swift */; };
 		D26D3FDAA13B285014A87487 /* WordDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC8B5CF8C5B3C550D483945C /* WordDetailView.swift */; };
 		D4A2C0FDAF0D0BB62C492178 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 983FDC34A422E4014DA43B69 /* Theme.swift */; };
 		DA0BC2315247C5C53E7B6367 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7027BF2274E8CFC70506FF5 /* SessionStore.swift */; };
-		E4173CDBE6562BDC92111833 /* UIComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99F95F1A2A55052D27A53D36 /* UIComponents.swift */; };
 		E626F6238073FF76DBFF1F5E /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF88CE9F90D276253F5F0FAF /* LoginView.swift */; };
 		FE08793E1F076FD151746208 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71F07513DCA499AAA60D78CD /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		075E45E09857E534BDF2BEA8 /* ClozeSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClozeSupport.swift; sourceTree = "<group>"; };
 		13F1ED7C329A66340935EC08 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
 		36DD9CBFC70F6FF85E98A65A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		4B73A18ECDBB0CEA658465E1 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
@@ -34,12 +37,13 @@
 		6351C2778F15D05CD6BDFB0C /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		6A8B7BEAA6DD7A738EBFCCC5 /* StudyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyView.swift; sourceTree = "<group>"; };
 		71F07513DCA499AAA60D78CD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		833466D1E80DDB1510777BE1 /* HandwritingRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandwritingRecognizer.swift; sourceTree = "<group>"; };
 		8604458387A92E97258214B0 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		983FDC34A422E4014DA43B69 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		99F95F1A2A55052D27A53D36 /* UIComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIComponents.swift; sourceTree = "<group>"; };
 		BF88CE9F90D276253F5F0FAF /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		C61D3C87E7796086A5B20E2E /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		D7027BF2274E8CFC70506FF5 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		F2F064B04BB9B457CF72556B /* PencilCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilCanvasView.swift; sourceTree = "<group>"; };
 		F2F71343D54EA88FC5E4C6B9 /* GermanVocab.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GermanVocab.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8B5CF8C5B3C550D483945C /* WordDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordDetailView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -65,11 +69,14 @@
 			isa = PBXGroup;
 			children = (
 				C61D3C87E7796086A5B20E2E /* APIClient.swift */,
+				075E45E09857E534BDF2BEA8 /* ClozeSupport.swift */,
 				13F1ED7C329A66340935EC08 /* Config.swift */,
 				5C2130118127DCD0F03E9C3E /* GermanVocabApp.swift */,
+				833466D1E80DDB1510777BE1 /* HandwritingRecognizer.swift */,
 				36DD9CBFC70F6FF85E98A65A /* Info.plist */,
 				BF88CE9F90D276253F5F0FAF /* LoginView.swift */,
 				5574A69AD2A82F1397E5D276 /* Models.swift */,
+				F2F064B04BB9B457CF72556B /* PencilCanvasView.swift */,
 				8604458387A92E97258214B0 /* RootView.swift */,
 				D7027BF2274E8CFC70506FF5 /* SessionStore.swift */,
 				71F07513DCA499AAA60D78CD /* SettingsView.swift */,
@@ -77,7 +84,6 @@
 				6A8B7BEAA6DD7A738EBFCCC5 /* StudyView.swift */,
 				983FDC34A422E4014DA43B69 /* Theme.swift */,
 				4B73A18ECDBB0CEA658465E1 /* TodayView.swift */,
-				99F95F1A2A55052D27A53D36 /* UIComponents.swift */,
 				FC8B5CF8C5B3C550D483945C /* WordDetailView.swift */,
 				51AD6E876B0ECEFCDD71895D /* WordsView.swift */,
 			);
@@ -143,10 +149,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				B0B00F37FD0AB7A720F4B964 /* APIClient.swift in Sources */,
+				09DB79A39F5EE492DF2F9458 /* ClozeSupport.swift in Sources */,
 				5388AFBABBD184CF4D6A1646 /* Config.swift in Sources */,
 				88AEEA92B749433096F7AF2F /* GermanVocabApp.swift in Sources */,
+				9338C2C65668A2B0C6C8A716 /* HandwritingRecognizer.swift in Sources */,
 				E626F6238073FF76DBFF1F5E /* LoginView.swift in Sources */,
 				561AB8A7825E85FE34A18E5B /* Models.swift in Sources */,
+				43E525BF9853B95A1262FCF0 /* PencilCanvasView.swift in Sources */,
 				111ABD4CDFF41A1B8CC30413 /* RootView.swift in Sources */,
 				DA0BC2315247C5C53E7B6367 /* SessionStore.swift in Sources */,
 				FE08793E1F076FD151746208 /* SettingsView.swift in Sources */,
@@ -154,7 +163,6 @@
 				97C71D04D2762A9EF0163855 /* StudyView.swift in Sources */,
 				D4A2C0FDAF0D0BB62C492178 /* Theme.swift in Sources */,
 				5288D80FF693E7D43FE36B6C /* TodayView.swift in Sources */,
-				E4173CDBE6562BDC92111833 /* UIComponents.swift in Sources */,
 				D26D3FDAA13B285014A87487 /* WordDetailView.swift in Sources */,
 				45DBED8B568B91EE5BC23939 /* WordsView.swift in Sources */,
 			);
