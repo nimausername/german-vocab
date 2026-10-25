@@ -11,15 +11,38 @@ struct WatchStudyView: View {
                 ProgressView("Loading")
             } else if let item = model.current {
                 card(item)
+            } else if model.errorMessage != nil {
+                loadFailed
             } else {
-                ContentUnavailableView {
-                    Label("All done", systemImage: "checkmark.circle")
-                } description: {
-                    Text("Come back tomorrow for the next set.")
-                }
+                finished
             }
         }
         .task { model.start() }
+    }
+
+    private var finished: some View {
+        ScrollView {
+            ContentUnavailableView {
+                Label("All done", systemImage: "checkmark.circle")
+            } description: {
+                Text("Come back tomorrow for the next set.")
+            }
+        }
+        .refreshable { await model.load(force: true) }
+    }
+
+    private var loadFailed: some View {
+        VStack(spacing: 8) {
+            Text(model.errorMessage ?? "Couldn’t load today’s words.")
+                .font(.footnote)
+                .foregroundStyle(.red)
+                .multilineTextAlignment(.center)
+            Button("Try again") {
+                Task { await model.load(force: true) }
+            }
+            .modifier(WatchActionStyle(prominent: true))
+        }
+        .padding(.horizontal, 4)
     }
 
     private var signedOut: some View {
@@ -48,17 +71,10 @@ struct WatchStudyView: View {
                     meaningCard(item)
                         .transition(.scale(scale: 0.92).combined(with: .opacity))
 
-                    if let errorMessage = model.errorMessage {
-                        Text(errorMessage)
-                            .font(.caption2)
-                            .foregroundStyle(.red)
-                            .multilineTextAlignment(.center)
-                    }
-
                     Button("Learned") {
                         Task { await model.mark(learned: true) }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .modifier(WatchActionStyle(prominent: true))
                     .tint(.green)
                     .disabled(model.isSubmitting)
                     .accessibilityLabel("Mark \(item.headwordWithArticle) as learned")
@@ -66,7 +82,7 @@ struct WatchStudyView: View {
                     Button("Not yet") {
                         Task { await model.mark(learned: false) }
                     }
-                    .buttonStyle(.bordered)
+                    .modifier(WatchActionStyle(prominent: false))
                     .tint(.orange)
                     .disabled(model.isSubmitting)
                     .accessibilityLabel("Mark \(item.headwordWithArticle) as not yet learned")
@@ -78,12 +94,20 @@ struct WatchStudyView: View {
                     } label: {
                         Label("Show meaning", systemImage: "eye")
                     }
-                    .buttonStyle(.borderedProminent)
+                    .modifier(WatchActionStyle(prominent: true))
                     .accessibilityHint("Reveals the English meaning")
+                }
+
+                if let errorMessage = model.errorMessage {
+                    Text(errorMessage)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
                 }
             }
             .padding(.horizontal, 2)
         }
+        .refreshable { await model.load(force: true) }
     }
 
     private func headword(_ item: StudyItem) -> some View {
@@ -140,5 +164,28 @@ struct WatchStudyView: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Meaning, \(item.glossEn). \(item.exampleDe)")
+    }
+}
+
+/// Glass on watchOS 26, and the standard bordered styles on earlier watches.
+private struct WatchActionStyle: ViewModifier {
+    var prominent: Bool
+
+    func body(content: Content) -> some View {
+        if #available(watchOS 26, *) {
+            if prominent {
+                content
+                    .buttonStyle(.glassProminent)
+                    .buttonBorderShape(.capsule)
+            } else {
+                content
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
+            }
+        } else if prominent {
+            content.buttonStyle(.borderedProminent)
+        } else {
+            content.buttonStyle(.bordered)
+        }
     }
 }

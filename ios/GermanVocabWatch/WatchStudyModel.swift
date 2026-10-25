@@ -2,6 +2,10 @@ import Foundation
 import WatchConnectivity
 
 /// Loads today's queue on the watch and records Learned or Not yet.
+///
+/// The queue is kept on the watch for the rest of the local day. The phone is
+/// messaged only when this watch has no session and the phone has not already
+/// delivered one. A later plan from the phone is a short stamp, not the queue.
 @MainActor
 final class WatchStudyModel: NSObject, ObservableObject {
     @Published var isSignedIn = false
@@ -17,8 +21,21 @@ final class WatchStudyModel: NSObject, ObservableObject {
     private var refreshToken: String?
     private var startedAt = Date()
     private var didStart = false
+    private var didRequestTokens = false
+    private var cacheIsCurrent = false
+    private var isFetchingPlan = false
+    private var refetchAfterCurrent = false
+    private var phonePlanStamp = ""
+    private var lastSeenPhoneStamp = ""
 
     var current: StudyItem? { queue.first }
+
+    /// True when today's saved queue is missing, or the phone has loaded a different plan.
+    private var needsNetworkPlan: Bool {
+        guard cacheIsCurrent else { return true }
+        guard !phonePlanStamp.isEmpty else { return false }
+        return phonePlanStamp != lastSeenPhoneStamp
+    }
 
     func start() {
         guard !didStart else { return }
@@ -26,6 +43,7 @@ final class WatchStudyModel: NSObject, ObservableObject {
         accessToken = defaults.string(forKey: WatchSyncKey.access)
         refreshToken = defaults.string(forKey: WatchSyncKey.refresh)
         isSignedIn = !(accessToken ?? "").isEmpty
+        restoreCachedQueue()
         guard WCSession.isSupported() else {
             if isSignedIn { Task { await load() } }
             return
@@ -35,20 +53,51 @@ final class WatchStudyModel: NSObject, ObservableObject {
         session.activate()
     }
 
-    func load() async {
+    /// Shows the saved queue when it is still today's plan. Pass `force` after a pull to refresh.
+    func load(force: Bool = false) async {
         guard isSignedIn else { return }
-        isLoading = true
+        if !force && !needsNetworkPlan { return }
+        if isFetchingPlan {
+            refetchAfterCurrent = true
+            return
+        }
+
+        isFetchingPlan = true
+        let stampAtStart = phonePlanStamp
+        if queue.isEmpty {
+            isLoading = true
+        }
         errorMessage = nil
-        defer { isLoading = false }
+
+        var fetched: TodayPlan?
         do {
-            let plan = try await withAuth { token in
+            fetched = try await withAuth { token in
                 try await self.client.todayPlan(token: token)
             }
-            queue = plan.queue
-            revealed = false
-            startedAt = Date()
         } catch {
             errorMessage = error.localizedDescription
+        }
+
+        if let fetched, isSignedIn {
+            let previousCardId = queue.first?.cardId
+            queue = fetched.queue
+            if queue.first?.cardId != previousCardId {
+                revealed = false
+                startedAt = Date()
+            }
+            lastSeenPhoneStamp = stampAtStart
+            persistCache()
+            errorMessage = nil
+        }
+
+        isLoading = false
+        isFetchingPlan = false
+
+        let stampChanged = phonePlanStamp != stampAtStart
+        let followUp = isSignedIn && (stampChanged || (refetchAfterCurrent && needsNetworkPlan))
+        refetchAfterCurrent = false
+        if followUp {
+            await load(force: true)
         }
     }
 
@@ -57,22 +106,23 @@ final class WatchStudyModel: NSObject, ObservableObject {
         isSubmitting = true
         errorMessage = nil
         defer { isSubmitting = false }
+        let cardId = item.cardId
         let rating: Rating = learned ? .good : .again
         let durationMs = Int(Date().timeIntervalSince(startedAt) * 1000)
         do {
             _ = try await withAuth { token in
                 try await self.client.submitReview(
                     token: token,
-                    cardId: item.cardId,
+                    cardId: cardId,
                     rating: rating,
                     durationMs: durationMs
                 )
             }
-            if !queue.isEmpty {
-                queue.removeFirst()
-            }
+            guard queue.first?.cardId == cardId else { return }
+            queue.removeFirst()
             revealed = false
             startedAt = Date()
+            persistCache()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -100,6 +150,11 @@ final class WatchStudyModel: NSObject, ObservableObject {
             clearSession()
             return
         }
+        let newUser = WatchTokenIdentity.userId(from: access)
+        let oldUser = accessToken.flatMap(WatchTokenIdentity.userId(from:))
+        if let newUser, let oldUser, newUser != oldUser {
+            clearCachedPlan()
+        }
         store(access: access, refresh: refresh, tellPhone: false)
     }
 
@@ -122,39 +177,91 @@ final class WatchStudyModel: NSObject, ObservableObject {
         accessToken = nil
         refreshToken = nil
         isSignedIn = false
-        queue = []
         defaults.removeObject(forKey: WatchSyncKey.access)
         defaults.removeObject(forKey: WatchSyncKey.refresh)
+        clearCachedPlan()
     }
 
-    private func requestTokensFromPhone() {
+    private func clearCachedPlan() {
+        queue = []
+        revealed = false
+        cacheIsCurrent = false
+        lastSeenPhoneStamp = ""
+        WatchPlanCacheStore.clear()
+    }
+
+    /// Reads the phone's last context without messaging it.
+    private func syncWithPhone() async {
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
         guard session.activationState == .activated else { return }
-        if let access = session.receivedApplicationContext[WatchSyncKey.access] as? String,
-           let refresh = session.receivedApplicationContext[WatchSyncKey.refresh] as? String {
+        let context = session.receivedApplicationContext
+        let phoneHasReported = context[WatchSyncKey.access] != nil
+        if phoneHasReported {
+            let access = context[WatchSyncKey.access] as? String ?? ""
+            let refresh = context[WatchSyncKey.refresh] as? String ?? ""
             apply(access: access, refresh: refresh)
         }
-        guard session.isReachable else {
-            if isSignedIn { Task { await load() } }
+        if let stamp = context[WatchSyncKey.planStamp] as? String {
+            phonePlanStamp = stamp
+        }
+        guard isSignedIn else {
+            // Wake the iPhone only when neither side has a session yet.
+            if !phoneHasReported {
+                requestTokensFromPhone()
+            }
             return
         }
+        restoreCachedQueue()
+        await load()
+    }
+
+    private func requestTokensFromPhone() {
+        guard !didRequestTokens, WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated, session.isReachable else { return }
+        didRequestTokens = true
         session.sendMessage(["request": "tokens"], replyHandler: { [weak self] reply in
             let access = reply[WatchSyncKey.access] as? String ?? ""
             let refresh = reply[WatchSyncKey.refresh] as? String ?? ""
+            let stamp = reply[WatchSyncKey.planStamp] as? String
             Task { @MainActor in
-                self?.apply(access: access, refresh: refresh)
-                if self?.isSignedIn == true {
-                    await self?.load()
+                guard let self else { return }
+                self.apply(access: access, refresh: refresh)
+                if let stamp {
+                    self.phonePlanStamp = stamp
                 }
+                guard self.isSignedIn else { return }
+                self.restoreCachedQueue()
+                await self.load()
             }
         }, errorHandler: { [weak self] _ in
             Task { @MainActor in
-                if self?.isSignedIn == true {
-                    await self?.load()
-                }
+                self?.didRequestTokens = false
             }
         })
+    }
+
+    private func restoreCachedQueue() {
+        guard isSignedIn, !cacheIsCurrent else { return }
+        guard let accessToken, let userId = WatchTokenIdentity.userId(from: accessToken) else { return }
+        guard let snapshot = WatchPlanCacheStore.load(today: WatchLocalDay.today, userId: userId) else { return }
+        queue = snapshot.queue
+        lastSeenPhoneStamp = snapshot.lastSeenPhoneStamp
+        cacheIsCurrent = true
+    }
+
+    private func persistCache() {
+        guard let accessToken, let userId = WatchTokenIdentity.userId(from: accessToken) else { return }
+        WatchPlanCacheStore.save(
+            WatchPlanCacheStore.Snapshot(
+                savedOnDay: WatchLocalDay.today,
+                userId: userId,
+                lastSeenPhoneStamp: lastSeenPhoneStamp,
+                queue: queue
+            )
+        )
+        cacheIsCurrent = true
     }
 }
 
@@ -166,7 +273,7 @@ extension WatchStudyModel: WCSessionDelegate {
     ) {
         guard activationState == .activated else { return }
         Task { @MainActor in
-            requestTokensFromPhone()
+            await syncWithPhone()
         }
     }
 
@@ -176,12 +283,84 @@ extension WatchStudyModel: WCSessionDelegate {
     ) {
         let access = applicationContext[WatchSyncKey.access] as? String ?? ""
         let refresh = applicationContext[WatchSyncKey.refresh] as? String ?? ""
+        let hasTokens = applicationContext[WatchSyncKey.access] != nil
+        let stamp = applicationContext[WatchSyncKey.planStamp] as? String
         Task { @MainActor in
-            let unchanged = isSignedIn && access == accessToken && refresh == refreshToken
-            apply(access: access, refresh: refresh)
-            if isSignedIn && !unchanged {
-                await load()
+            if hasTokens {
+                apply(access: access, refresh: refresh)
             }
+            if let stamp {
+                phonePlanStamp = stamp
+            }
+            guard isSignedIn else { return }
+            restoreCachedQueue()
+            await load()
         }
+    }
+}
+
+/// Local calendar day used to decide when the saved queue expires.
+private enum WatchLocalDay {
+    static var today: String {
+        let parts = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
+    }
+}
+
+/// Reads the Keycloak subject from an access token without verifying the signature.
+private enum WatchTokenIdentity {
+    static func userId(from token: String) -> String? {
+        let parts = token.split(separator: ".")
+        guard parts.count >= 2 else { return nil }
+        var base64 = String(parts[1])
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let remainder = base64.count % 4
+        if remainder > 0 {
+            base64 += String(repeating: "=", count: 4 - remainder)
+        }
+        guard let data = Data(base64Encoded: base64),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let subject = json["sub"] as? String,
+              !subject.isEmpty else {
+            return nil
+        }
+        return subject
+    }
+}
+
+/// Today's queue stored in the caches directory so a later open can skip the network.
+private enum WatchPlanCacheStore {
+    struct Snapshot: Codable {
+        var savedOnDay: String
+        var userId: String
+        var lastSeenPhoneStamp: String
+        var queue: [StudyItem]
+    }
+
+    static func load(today: String, userId: String) -> Snapshot? {
+        guard let snapshot = read(), snapshot.savedOnDay == today, snapshot.userId == userId else {
+            return nil
+        }
+        return snapshot
+    }
+
+    static func save(_ snapshot: Snapshot) {
+        guard let data = try? JSONEncoder().encode(snapshot) else { return }
+        try? data.write(to: fileURL, options: .atomic)
+    }
+
+    static func clear() {
+        try? FileManager.default.removeItem(at: fileURL)
+    }
+
+    private static func read() -> Snapshot? {
+        guard let data = try? Data(contentsOf: fileURL) else { return nil }
+        return try? JSONDecoder().decode(Snapshot.self, from: data)
+    }
+
+    private static var fileURL: URL {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        return base.appendingPathComponent("watch-today-plan.json", isDirectory: false)
     }
 }

@@ -6,56 +6,70 @@ struct WordDetailView: View {
     var body: some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        if let article = word.article {
-                            Text(article)
-                                .foregroundStyle(AppTheme.genderColor(for: article))
-                        }
-                        Text(word.displayNoun)
-                            .foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .center, spacing: 8) {
+                        ArticleText(article: word.article, prominent: true)
+                        Text(word.cefrLevel)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.fill.tertiary, in: Capsule())
+                        Spacer(minLength: 8)
+                        StatusChip(
+                            title: word.progress.learned ? "Learned" : "New",
+                            tint: word.progress.learned ? .green : .orange,
+                            systemImage: word.progress.learned ? "checkmark" : "sparkle"
+                        )
                     }
-                    .font(.system(.largeTitle, design: .serif))
+
+                    Text(word.displayNoun)
+                        .font(.system(.largeTitle, design: .serif))
+                        .foregroundStyle(.primary)
 
                     Text(word.glossEn)
                         .font(.title3)
                         .foregroundStyle(.secondary)
                 }
+                .padding(.vertical, 4)
                 .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(word.headwordWithArticle), \(word.glossEn)")
             }
 
             Section("Forms") {
-                LabeledContent("CEFR", value: word.cefrLevel)
+                MetricRow(title: "CEFR", value: word.cefrLevel, systemImage: "graduationcap")
                 if let plural = word.plural, !plural.isEmpty {
-                    LabeledContent("Plural", value: plural)
+                    MetricRow(title: "Plural", value: plural, systemImage: "textformat")
                 }
                 if !word.tags.isEmpty {
-                    LabeledContent("Tags", value: word.tags.joined(separator: ", "))
+                    MetricRow(title: "Tags", value: word.tags.joined(separator: ", "), systemImage: "tag")
                 }
             }
 
             Section("Examples") {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(word.exampleDe)
                         .font(.body.italic())
                     Text(word.exampleEn)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
             }
 
-            Section("Your progress") {
+            Section("Your Progress") {
                 LabeledContent("Status") {
                     Text(word.progress.learned ? "Learned" : "Not learned yet")
                         .foregroundStyle(word.progress.learned ? Color.green : Color.orange)
                 }
-                LabeledContent("Reviews", value: "\(word.progress.reps)")
-                LabeledContent("Lapses", value: "\(word.progress.lapses)")
+                MetricRow(title: "Reviews", value: "\(word.progress.reps)", systemImage: "arrow.clockwise")
+                MetricRow(title: "Lapses", value: "\(word.progress.lapses)", systemImage: "arrow.uturn.backward")
                 if let due = word.progress.due {
-                    LabeledContent("Next due", value: formatDate(due))
+                    MetricRow(title: "Next due", value: formatDate(due), systemImage: "calendar")
                 }
                 if let last = word.progress.lastReview {
-                    LabeledContent("Last review", value: formatDate(last))
+                    MetricRow(title: "Last review", value: formatDate(last), systemImage: "clock")
                 }
             }
         }

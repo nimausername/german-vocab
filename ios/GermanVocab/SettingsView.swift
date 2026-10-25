@@ -18,10 +18,26 @@ struct SettingsView: View {
             Form {
                 Section {
                     Stepper(value: $dailyNewLimit, in: 1...50) {
-                        LabeledContent("New words a day", value: "\(dailyNewLimit)")
+                        LabeledContent {
+                            Text("\(dailyNewLimit)")
+                                .monospacedDigit()
+                                .contentTransition(.numericText())
+                                .font(.body.weight(.semibold))
+                        } label: {
+                            Label("New words a day", systemImage: "sparkles")
+                        }
                     }
                     .disabled(isSavingLimit || !limitReady)
                     .accessibilityHint("Changes how many new words join each day's plan")
+
+                    if isSavingLimit {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("Saving")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
 
                     if let limitError {
                         Text(limitError)
@@ -29,18 +45,27 @@ struct SettingsView: View {
                             .foregroundStyle(.red)
                     }
                 } header: {
-                    Text("Daily plan")
+                    Text("Daily Plan")
                 } footer: {
                     Text("Due reviews are always included. This limit only adds new words. It applies the next time Today loads.")
                 }
 
                 Section {
-                    Toggle("Reminders", isOn: $preferences.enabled)
-                        .accessibilityHint("Sends study reminders on this iPhone or iPad")
+                    Toggle(isOn: $preferences.enabled) {
+                        Label("Reminders", systemImage: "bell")
+                    }
+                    .accessibilityHint("Sends study reminders on this iPhone or iPad")
 
                     if preferences.enabled {
                         Stepper(value: $preferences.timesPerDay, in: 1...4) {
-                            LabeledContent("Times a day", value: "\(preferences.timesPerDay)")
+                            LabeledContent {
+                                Text("\(preferences.timesPerDay)")
+                                    .monospacedDigit()
+                                    .contentTransition(.numericText())
+                                    .font(.body.weight(.semibold))
+                            } label: {
+                                Label("Times a day", systemImage: "clock")
+                            }
                         }
 
                         DatePicker(
@@ -59,7 +84,7 @@ struct SettingsView: View {
                     }
 
                     if notificationsDenied {
-                        Text("Notifications are off for German Vocab in iOS Settings.")
+                        Label("Notifications are off for German Vocab in iOS Settings.", systemImage: "bell.slash")
                             .font(.footnote)
                             .foregroundStyle(.red)
                     }
@@ -70,11 +95,13 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("API base URL") {
+                    LabeledContent {
                         Text(AppConfig.apiBaseURL.absoluteString)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
                             .multilineTextAlignment(.trailing)
+                    } label: {
+                        Label("API base URL", systemImage: "link")
                     }
                 } header: {
                     Text("Connection")
@@ -83,8 +110,10 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Button("Sign out", role: .destructive) {
+                    Button(role: .destructive) {
                         session.logout()
+                    } label: {
+                        Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
                     }
                 }
             }

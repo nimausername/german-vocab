@@ -75,10 +75,18 @@ enum HandwritingRecognizer {
         return resolve(candidates: candidates, bestRaw: bestRaw, expectedAnswers: expectedAnswers)
     }
 
-    /// Grades a typed answer with the same expected-answer bias as handwriting.
-    static func resolveTyped(_ text: String, expectedAnswers: [String]) -> HandwritingRecognition {
+    /// Returns keyboard text unchanged so grading stays exact.
+    ///
+    /// Pencil recognition may rewrite a near miss (f read as r). Typed answers
+    /// must not: "der Familie" is two letters from "die Familie", and that
+    /// distance is inside the handwriting tolerance for longer nouns.
+    static func resolveTyped(_ text: String) -> HandwritingRecognition {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return resolve(candidates: [trimmed], bestRaw: trimmed, expectedAnswers: expectedAnswers)
+        return HandwritingRecognition(
+            rawText: trimmed,
+            resolvedText: trimmed,
+            matchedExpected: false
+        )
     }
 
     // MARK: - Resolve
@@ -381,6 +389,7 @@ enum HandwritingRecognizer {
 
                 let maxSwaps = max(1, a.count / 4)
                 guard mismatches <= maxSwaps, mismatches < bestMismatches else { continue }
+                guard !changesDefiniteArticle(candidate, expected) else { continue }
                 bestMismatches = mismatches
                 bestExpected = expected
             }
@@ -399,7 +408,7 @@ enum HandwritingRecognizer {
                 let b = ClozeSupport.compactKey(expected)
                 let score = levenshtein(a, b)
                 let maxAllowed = maxAllowedEdits(for: b)
-                if score > 0, score <= maxAllowed, score < bestScore {
+                if score > 0, score <= maxAllowed, score < bestScore, !changesDefiniteArticle(candidate, expected) {
                     bestScore = score
                     bestExpected = expected
                 }
@@ -407,6 +416,25 @@ enum HandwritingRecognizer {
         }
 
         return bestExpected
+    }
+
+    /// A different der/die/das is a wrong answer, not a handwriting slip.
+    private static func changesDefiniteArticle(_ candidate: String, _ expected: String) -> Bool {
+        guard
+            let candidateArticle = leadingDefiniteArticle(candidate),
+            let expectedArticle = leadingDefiniteArticle(expected)
+        else {
+            return false
+        }
+        return candidateArticle != expectedArticle
+    }
+
+    private static func leadingDefiniteArticle(_ value: String) -> String? {
+        guard let first = ClozeSupport.normalize(value).split(separator: " ").first else {
+            return nil
+        }
+        let article = String(first)
+        return ["der", "die", "das"].contains(article) ? article : nil
     }
 
     private static func maxAllowedEdits(for compactExpected: String) -> Int {

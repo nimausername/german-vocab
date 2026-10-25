@@ -4,6 +4,7 @@ struct LoginView: View {
     @EnvironmentObject private var session: SessionStore
     @State private var username = ""
     @State private var password = ""
+    @State private var didAppear = false
     @FocusState private var focusedField: Field?
 
     private enum Field {
@@ -14,6 +15,24 @@ struct LoginView: View {
         NavigationStack {
             Form {
                 Section {
+                    HStack(spacing: 14) {
+                        Image(systemName: "character.book.closed.fill")
+                            .font(.system(size: 34))
+                            .foregroundStyle(AppTheme.accent)
+                            .symbolRenderingMode(.hierarchical)
+                            .symbolEffect(.bounce, value: didAppear)
+                            .accessibilityHidden(true)
+
+                        Text("Daily German, scheduled with care.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+                .listRowBackground(Color.clear)
+
+                Section("Account") {
                     TextField("Username", text: $username)
                         .textContentType(.username)
                         .textInputAutocapitalization(.never)
@@ -27,13 +46,14 @@ struct LoginView: View {
                         .focused($focusedField, equals: .password)
                         .submitLabel(.go)
                         .onSubmit { Task { await signIn() } }
-                } footer: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Daily German, scheduled with care.")
-                        if let errorMessage = session.errorMessage {
-                            Text(errorMessage)
-                                .foregroundStyle(.red)
-                        }
+                }
+
+                if let errorMessage = session.errorMessage {
+                    Section {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                            .font(.footnote)
+                            .accessibilityLabel("Error. \(errorMessage)")
                     }
                 }
             }
@@ -41,25 +61,31 @@ struct LoginView: View {
             .navigationTitle("German Vocab")
             .navigationBarTitleDisplayMode(.large)
             .scrollDismissesKeyboard(.interactively)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                Button {
-                    Task { await signIn() }
-                } label: {
-                    Group {
-                        if session.isBusy {
-                            ProgressView()
-                        } else {
-                            Text("Sign in")
+            .safeAreaBar(edge: .bottom) {
+                BottomActionBar {
+                    Button {
+                        Task { await signIn() }
+                    } label: {
+                        Group {
+                            if session.isBusy {
+                                ProgressView()
+                            } else {
+                                Text("Sign In")
+                            }
                         }
+                        .frame(maxWidth: .infinity)
                     }
-                    .frame(maxWidth: .infinity)
+                    .prominentGlassCapsule()
+                    .actionColumn()
+                    .disabled(!canSubmit || session.isBusy)
+                    .accessibilityLabel(session.isBusy ? "Signing in" : "Sign in")
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(!canSubmit || session.isBusy)
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(.bar)
+            }
+            .onAppear {
+                didAppear = true
+                if username.isEmpty {
+                    focusedField = .username
+                }
             }
         }
     }

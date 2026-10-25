@@ -20,11 +20,9 @@ struct StatsView: View {
                 } else if let stats {
                     statsList(stats)
                 } else if let errorMessage {
-                    ContentUnavailableView(
-                        "Couldn’t load stats",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(errorMessage)
-                    )
+                    LoadFailureView(title: "Couldn’t load stats", message: errorMessage) {
+                        Task { await load() }
+                    }
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -32,6 +30,18 @@ struct StatsView: View {
             }
             .navigationTitle("Stats")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await load() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .symbolEffect(.rotate, isActive: isLoading)
+                    }
+                    .accessibilityLabel("Refresh stats")
+                    .disabled(isLoading)
+                }
+            }
             .task { await load() }
             .refreshable { await load() }
         }
@@ -40,40 +50,60 @@ struct StatsView: View {
     private func statsList(_ stats: UserStats) -> some View {
         List {
             Section("Streak") {
-                LabeledContent("Current streak") {
-                    Text("\(stats.streak) days")
-                        .font(.title2.bold())
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Image(systemName: "flame.fill")
+                        .font(.title2)
+                        .foregroundStyle(.orange)
+                        .symbolEffect(.bounce, value: stats.streak)
+                        .accessibilityHidden(true)
+
+                    Text("\(stats.streak)")
+                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
                         .monospacedDigit()
+                        .contentTransition(.numericText())
+
+                    Text(stats.streak == 1 ? "day" : "days")
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
                 }
+                .accessibilityElement(children: .combine)
                 .accessibilityLabel("\(stats.streak) day streak")
             }
 
             Section("Lexicon") {
-                HStack(spacing: 16) {
-                    Gauge(value: learnProgress) {
-                        Text("Learned")
-                    } currentValueLabel: {
-                        Text("\(Int((learnProgress * 100).rounded()))%")
-                    }
-                    .gaugeStyle(.accessoryCircularCapacity)
-                    .tint(AppTheme.accent)
-
-                    VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .firstTextBaseline) {
                         Text("\(stats.wordsLearned) of \(stats.wordsTotal)")
                             .font(.title2.bold())
-                        Text("\(stats.matureCards) mature")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                        Spacer()
+                        Text("\(Int((learnProgress * 100).rounded()))%")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(AppTheme.accent)
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
                     }
+
+                    Gauge(value: learnProgress) {
+                        Text("Learned")
+                    }
+                    .gaugeStyle(.accessoryLinearCapacity)
+                    .tint(AppTheme.accent)
+                    .animation(AppMotion.reveal, value: learnProgress)
+
+                    Text("\(stats.matureCards) mature")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(stats.wordsLearned) of \(stats.wordsTotal) words learned")
+                .accessibilityLabel("\(stats.wordsLearned) of \(stats.wordsTotal) words learned, \(stats.matureCards) mature")
             }
 
             Section("Activity") {
-                LabeledContent("Reviews today", value: "\(stats.reviewsToday)")
-                LabeledContent("Due next 7 days", value: "\(stats.reviewsDueNext7Days)")
-                LabeledContent("Daily new limit", value: "\(stats.dailyNewLimit)")
+                MetricRow(title: "Reviews today", value: "\(stats.reviewsToday)", systemImage: "checkmark.circle")
+                MetricRow(title: "Due next 7 days", value: "\(stats.reviewsDueNext7Days)", systemImage: "calendar")
+                MetricRow(title: "Daily new limit", value: "\(stats.dailyNewLimit)", systemImage: "sparkles")
             }
 
             if let errorMessage {

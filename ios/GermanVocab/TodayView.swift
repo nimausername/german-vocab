@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TodayView: View {
     @EnvironmentObject private var session: SessionStore
+    @Namespace private var studyTransition
     @State private var plan: TodayPlan?
     @State private var errorMessage: String?
     @State private var isLoading = false
@@ -16,11 +17,12 @@ struct TodayView: View {
                 } else if let plan {
                     planList(plan)
                 } else if let errorMessage {
-                    ContentUnavailableView(
-                        "Couldn’t load plan",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(errorMessage)
-                    )
+                    LoadFailureView(
+                        title: "Couldn’t load plan",
+                        message: errorMessage
+                    ) {
+                        Task { await load() }
+                    }
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -34,6 +36,7 @@ struct TodayView: View {
                         Task { await load() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
+                            .symbolEffect(.rotate, isActive: isLoading)
                     }
                     .accessibilityLabel("Refresh plan")
                     .disabled(isLoading)
@@ -49,6 +52,7 @@ struct TodayView: View {
             .navigationDestination(isPresented: $showStudy) {
                 if let plan {
                     StudyView(initialQueue: plan.queue)
+                        .navigationTransition(.zoom(sourceID: "start-session", in: studyTransition))
                 }
             }
         }
@@ -58,33 +62,53 @@ struct TodayView: View {
     private func planList(_ plan: TodayPlan) -> some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(formattedDate(plan.planDate))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    Text("\(plan.streak) day streak")
-                        .font(.largeTitle.bold())
-                        .contentTransition(.numericText())
+
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Image(systemName: "flame.fill")
+                            .font(.title2)
+                            .foregroundStyle(.orange)
+                            .symbolEffect(.bounce, value: plan.streak)
+                            .accessibilityHidden(true)
+
+                        Text("\(plan.streak)")
+                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+
+                        Text("day streak")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                    }
+
                     Text(plan.queue.isEmpty ? "You’re clear for today." : "Keep the chain alive.")
                         .foregroundStyle(.secondary)
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(plan.streak) day streak")
+                .padding(.vertical, 4)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(streakLabel(plan))
             }
 
             Section("Queue") {
-                LabeledContent("Reviews", value: "\(plan.reviewDue)")
-                LabeledContent("New left", value: "\(plan.newRemaining)")
-                LabeledContent("In this session", value: "\(plan.queue.count)")
+                MetricRow(title: "Reviews", value: "\(plan.reviewDue)", systemImage: "arrow.clockwise")
+                MetricRow(title: "New left", value: "\(plan.newRemaining)", systemImage: "sparkles")
+                MetricRow(title: "In this session", value: "\(plan.queue.count)", systemImage: "rectangle.stack")
             }
 
             Section("Session") {
                 if plan.queue.isEmpty {
-                    Text("Come back tomorrow for the next set.")
+                    Label("Come back tomorrow for the next set.", systemImage: "sun.horizon")
                         .foregroundStyle(.secondary)
                 } else {
-                    LabeledContent("Cards", value: "\(plan.queue.count)")
-                    LabeledContent("About", value: "\(estimatedMinutes(plan.queue.count)) min")
+                    MetricRow(title: "Cards", value: "\(plan.queue.count)", systemImage: "square.stack")
+                    MetricRow(
+                        title: "About",
+                        value: "\(estimatedMinutes(plan.queue.count)) min",
+                        systemImage: "clock"
+                    )
                 }
             }
 
@@ -95,23 +119,30 @@ struct TodayView: View {
                 }
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        .animation(AppMotion.reveal, value: plan.streak)
+        .animation(AppMotion.reveal, value: plan.queue.count)
+        .safeAreaBar(edge: .bottom) {
             if !plan.queue.isEmpty {
-                Button {
-                    showStudy = true
-                } label: {
-                    Text("Start session")
-                        .frame(maxWidth: .infinity)
+                BottomActionBar {
+                    Button {
+                        showStudy = true
+                    } label: {
+                        Label("Start Session", systemImage: "play.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .prominentGlassCapsule()
+                    .actionColumn()
+                    .matchedTransitionSource(id: "start-session", in: studyTransition)
+                    .accessibilityLabel("Start session")
+                    .accessibilityHint("\(plan.queue.count) cards, about \(estimatedMinutes(plan.queue.count)) minutes")
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .frame(maxWidth: 420)
-                .padding()
-                .frame(maxWidth: .infinity)
-                .background(.bar)
-                .accessibilityLabel("Start session")
             }
         }
+    }
+
+    private func streakLabel(_ plan: TodayPlan) -> String {
+        let status = plan.queue.isEmpty ? "You’re clear for today." : "Keep the chain alive."
+        return "\(formattedDate(plan.planDate)). \(plan.streak) day streak. \(status)"
     }
 
     private func load() async {
@@ -124,6 +155,9 @@ struct TodayView: View {
             let loadedPlan = try await planTask
             let stats = try? await statsTask
             plan = loadedPlan
+            PhoneWatchBridge.shared.updatePlanStamp(
+                WatchPlanStamp.make(planDate: loadedPlan.planDate, queue: loadedPlan.queue)
+            )
             let studied = loadedPlan.studiedToday || (stats?.reviewsToday ?? 0) > 0
             ReminderContext(
                 streak: loadedPlan.streak,

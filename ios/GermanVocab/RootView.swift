@@ -1,5 +1,12 @@
 import SwiftUI
 
+private enum AppSection: Hashable {
+    case today
+    case words
+    case stats
+    case settings
+}
+
 struct RootView: View {
     @EnvironmentObject private var session: SessionStore
 
@@ -7,36 +14,48 @@ struct RootView: View {
         Group {
             if session.isAuthenticated {
                 MainTabView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
             } else {
                 LoginView()
+                    .transition(.opacity)
             }
         }
-        .animation(.default, value: session.isAuthenticated)
+        .animation(AppMotion.reveal, value: session.isAuthenticated)
+        .sensoryFeedback(.success, trigger: session.isAuthenticated) { _, signedIn in
+            signedIn
+        }
     }
 }
 
 struct MainTabView: View {
+    @State private var section: AppSection = .today
+
     var body: some View {
-        TabView {
-            TodayView()
-                .tabItem {
-                    Label("Today", systemImage: "sun.max")
+        TabView(selection: $section) {
+            if #available(iOS 27, *) {
+                Tab("Today", systemImage: "sun.max", value: AppSection.today, role: .prominent) {
+                    TodayView()
                 }
+            } else {
+                Tab("Today", systemImage: "sun.max", value: AppSection.today) {
+                    TodayView()
+                }
+            }
 
-            WordsView()
-                .tabItem {
-                    Label("Words", systemImage: "text.book.closed")
-                }
+            Tab("Words", systemImage: "text.book.closed", value: AppSection.words) {
+                WordsView()
+            }
 
-            StatsView()
-                .tabItem {
-                    Label("Stats", systemImage: "chart.bar")
-                }
+            Tab("Stats", systemImage: "chart.bar", value: AppSection.stats) {
+                StatsView()
+            }
 
-            SettingsView()
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape")
-                }
+            Tab("Settings", systemImage: "gearshape", value: AppSection.settings) {
+                SettingsView()
+            }
         }
+        .tabViewStyle(.sidebarAdaptable)
+        .tabBarMinimizeBehavior(.onScrollDown)
+        .sensoryFeedback(.selection, trigger: section)
     }
 }

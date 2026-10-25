@@ -76,30 +76,36 @@ struct StudyView: View {
         }
         .navigationTitle("Study")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarVisibility(.hidden, for: .tabBar)
         .toolbar {
             if !queue.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
                     Text("\(queue.count) left")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .font(.subheadline.weight(.semibold))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
                         .accessibilityLabel("\(queue.count) cards left")
                 }
             }
         }
-        .animation(.snappy, value: stage)
-        .animation(.snappy, value: queue.first?.cardId)
+        .animation(AppMotion.step, value: stage)
+        .animation(AppMotion.step, value: queue.first?.cardId)
     }
 
     private func activeSession(_ current: StudyItem) -> some View {
         ScrollView {
-            VStack(spacing: 24) {
-                ProgressView(value: progress) {
-                    Text(stage.title(typing: typingIsPrimary))
-                } currentValueLabel: {
-                    Text("\(completed) of \(initialCount)")
-                        .monospacedDigit()
+            VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ProgressView(value: progress) {
+                        Text("Session")
+                    } currentValueLabel: {
+                        Text("\(completed) of \(initialCount)")
+                            .monospacedDigit()
+                    }
+                    .font(.subheadline)
+
+                    stageTrack
                 }
-                .font(.subheadline)
 
                 Group {
                     switch stage {
@@ -111,14 +117,64 @@ struct StudyView: View {
                         rateStage(current)
                     }
                 }
+                .id(stage)
+                .transition(
+                    .asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    )
+                )
             }
             .frame(maxWidth: 640)
             .frame(maxWidth: .infinity)
-            .padding(24)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
         }
         .scrollDismissesKeyboard(.interactively)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        .sensoryFeedback(trigger: wordChecked) { old, new in
+            guard new, !old else { return nil }
+            return feedback(for: wordResult)
+        }
+        .sensoryFeedback(trigger: clozeChecked) { old, new in
+            guard new, !old else { return nil }
+            return feedback(for: clozeResult)
+        }
+        .sensoryFeedback(.selection, trigger: queue.count) { old, new in
+            new < old
+        }
+        .safeAreaBar(edge: .bottom) {
             bottomBar(for: current)
+        }
+    }
+
+    private var stageTrack: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                ForEach(0..<3, id: \.self) { index in
+                    Capsule()
+                        .fill(index <= stage.rawValue ? AppTheme.accent : Color.primary.opacity(0.12))
+                        .frame(height: 5)
+                }
+            }
+            .animation(AppMotion.step, value: stage)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Step \(stage.rawValue + 1) of 3")
+            .accessibilityValue(stage.title(typing: typingIsPrimary))
+
+            Text(stage.title(typing: typingIsPrimary))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func feedback(for result: ClozeResult?) -> SensoryFeedback {
+        switch result {
+        case .full:
+            return .success
+        case .partial:
+            return .warning
+        case .wrong, .none:
+            return .error
         }
     }
 
@@ -126,16 +182,12 @@ struct StudyView: View {
 
     private func writeWordStage(_ current: StudyItem) -> some View {
         VStack(spacing: 16) {
-            Label(
-                current.isNew ? "New" : "Review",
-                systemImage: current.isNew ? "sparkles" : "arrow.clockwise"
-            )
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            kindLabel(current)
 
             Text(current.glossEn)
-                .font(.largeTitle.bold())
+                .font(.system(.largeTitle, design: .rounded, weight: .bold))
                 .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
 
             Text(wordPrompt(for: current))
                 .font(.subheadline)
@@ -162,9 +214,11 @@ struct StudyView: View {
                     expected: current.headwordWithArticle,
                     result: wordResult
                 )
+                .transition(.opacity.combined(with: .move(edge: .top)))
                 headword(current)
             }
         }
+        .animation(AppMotion.reveal, value: wordChecked)
     }
 
     // MARK: - Stage 2: Write in sentence
@@ -178,8 +232,9 @@ struct StudyView: View {
                 .foregroundStyle(.secondary)
 
             Text(prompt.blankedSentence)
-                .font(.title2)
+                .font(.title2.weight(.semibold))
                 .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
 
             Text(current.exampleEn)
                 .font(.subheadline)
@@ -206,8 +261,10 @@ struct StudyView: View {
                     expected: prompt.expected,
                     result: clozeResult
                 )
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .animation(AppMotion.reveal, value: clozeChecked)
         .task(id: current.cardId) {
             if clozePrompt == nil {
                 clozePrompt = ClozeSupport.makePrompt(for: current)
@@ -217,11 +274,19 @@ struct StudyView: View {
 
     private func typeFallbackField(hint: String, onSubmit: @escaping () -> Void) -> some View {
         TextField(hint, text: $typedAnswer)
-            .textFieldStyle(.roundedBorder)
+            .font(.title3)
+            .textFieldStyle(.plain)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .submitLabel(.done)
             .focused($typingFocused)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(.background, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color(.separator), lineWidth: 1)
+            }
             .onSubmit(onSubmit)
             .onAppear {
                 if typingIsPrimary {
@@ -246,13 +311,7 @@ struct StudyView: View {
 
     private func rateStage(_ current: StudyItem) -> some View {
         VStack(spacing: 16) {
-            Label(
-                current.isNew ? "New" : "Review",
-                systemImage: current.isNew ? "sparkles" : "arrow.clockwise"
-            )
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-
+            kindLabel(current)
             headword(current)
 
             Text(current.glossEn)
@@ -260,36 +319,42 @@ struct StudyView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            VStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(current.exampleDe)
                     .font(.body.italic())
-                    .multilineTextAlignment(.center)
                 Text(current.exampleEn)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
 
             if failedProduction {
                 Label(
                     typingIsPrimary
                         ? "Answer was off — consider Again or Hard"
                         : "Writing was off — consider Again or Hard",
-                    systemImage: "exclamationmark.triangle"
+                    systemImage: "exclamationmark.triangle.fill"
                 )
-                    .font(.subheadline)
-                    .foregroundStyle(.orange)
-                    .multilineTextAlignment(.center)
+                .font(.subheadline)
+                .foregroundStyle(.orange)
+                .multilineTextAlignment(.center)
             }
         }
     }
 
+    private func kindLabel(_ current: StudyItem) -> some View {
+        StatusChip(
+            title: current.isNew ? "New" : "Review",
+            tint: current.isNew ? AppTheme.accent : .secondary,
+            systemImage: current.isNew ? "sparkles" : "arrow.clockwise"
+        )
+    }
+
     private func headword(_ current: StudyItem) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            if let article = current.article {
-                Text(article)
-                    .foregroundStyle(AppTheme.genderColor(for: article))
-            }
+            ArticleText(article: current.article, prominent: true)
             Text(current.displayNoun)
                 .foregroundStyle(.primary)
                 .minimumScaleFactor(0.65)
@@ -297,11 +362,13 @@ struct StudyView: View {
         }
         .font(.system(size: 44, weight: .medium, design: .serif))
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
         .accessibilityLabel(current.headwordWithArticle)
     }
 
     @ViewBuilder
     private func resultBlock(recognized: String, expected: String, result: ClozeResult?) -> some View {
+        let tint = resultTint(result)
         VStack(spacing: 8) {
             Text("Read as: \(recognized.isEmpty ? "—" : recognized)")
                 .font(.subheadline)
@@ -310,38 +377,55 @@ struct StudyView: View {
             switch result {
             case .full:
                 Label("Correct — \(expected)", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
             case .partial(let missingArticle):
                 Label("Almost — include “\(missingArticle)”", systemImage: "exclamationmark.circle.fill")
-                    .foregroundStyle(.orange)
             case .wrong, .none:
                 Label("Expected: \(expected)", systemImage: "xmark.circle.fill")
-                    .foregroundStyle(.red)
             }
         }
         .font(.headline)
+        .foregroundStyle(tint)
         .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .padding(16)
+        .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private func resultTint(_ result: ClozeResult?) -> Color {
+        switch result {
+        case .full:
+            return .green
+        case .partial:
+            return .orange
+        case .wrong, .none:
+            return .red
+        }
     }
 
     // MARK: - Actions
 
     @ViewBuilder
     private func bottomBar(for current: StudyItem) -> some View {
-        VStack(spacing: 10) {
+        BottomActionBar {
             if let errorMessage {
                 Text(errorMessage)
                     .font(.footnote)
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
+                    .actionColumn()
+            }
+
+            if isSubmitting {
+                ProgressView("Saving")
             }
 
             switch stage {
             case .writeWord:
                 if wordChecked {
-                    prominentButton("Continue to sentence") {
+                    prominentButton("Continue to Sentence") {
                         clozePrompt = ClozeSupport.makePrompt(for: current)
                         clozeCanvas.clear()
-                        withAnimation(.snappy) { stage = .writeCloze }
+                        withAnimation(AppMotion.step) { stage = .writeCloze }
                     }
                 } else {
                     checkControls(
@@ -355,7 +439,7 @@ struct StudyView: View {
             case .writeCloze:
                 if clozeChecked {
                     prominentButton("Continue") {
-                        withAnimation(.snappy) { stage = .rate }
+                        withAnimation(AppMotion.step) { stage = .rate }
                     }
                 } else {
                     checkControls(
@@ -370,9 +454,6 @@ struct StudyView: View {
                 ratingRow(for: current)
             }
         }
-        .padding()
-        .frame(maxWidth: .infinity)
-        .background(.bar)
     }
 
     private func prominentButton(_ title: String, action: @escaping () -> Void) -> some View {
@@ -380,9 +461,8 @@ struct StudyView: View {
             Text(title)
                 .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        .frame(maxWidth: 420)
+        .prominentGlassCapsule()
+        .actionColumn()
     }
 
     private func checkControls(
@@ -401,29 +481,29 @@ struct StudyView: View {
                 }
                 .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .frame(maxWidth: 420)
+            .prominentGlassCapsule()
+            .actionColumn()
             .disabled(isRecognizing || !canCheck)
 
             if !typingIsPrimary {
-                Button(showTypeFallback ? "Hide keyboard" : "Type instead") {
-                    withAnimation(.snappy) {
+                Button(showTypeFallback ? "Hide Keyboard" : "Type Instead", systemImage: "keyboard") {
+                    withAnimation(AppMotion.step) {
                         showTypeFallback.toggle()
                         if !showTypeFallback { typedAnswer = "" }
                     }
                 }
-                .buttonStyle(.borderless)
+                .glassCapsule(size: .small)
                 .disabled(isRecognizing)
+                .sensoryFeedback(.selection, trigger: showTypeFallback)
             }
         }
     }
 
     private var checkTitle: String {
         if typingIsPrimary || (showTypeFallback && !typedAnswer.isEmpty) {
-            return "Check typed answer"
+            return "Check Typed Answer"
         }
-        return "Check writing"
+        return "Check Writing"
     }
 
     private func canCheckAnswer(hasStrokes: Bool) -> Bool {
@@ -456,7 +536,7 @@ struct StudyView: View {
             applyWordResult(recognition, prompt: prompt, item: current)
         } catch {
             errorMessage = error.localizedDescription
-            withAnimation(.snappy) { showTypeFallback = true }
+            withAnimation(AppMotion.step) { showTypeFallback = true }
         }
     }
 
@@ -478,7 +558,7 @@ struct StudyView: View {
             applyClozeResult(recognition, prompt: prompt, item: current)
         } catch {
             errorMessage = error.localizedDescription
-            withAnimation(.snappy) { showTypeFallback = true }
+            withAnimation(AppMotion.step) { showTypeFallback = true }
         }
     }
 
@@ -489,7 +569,7 @@ struct StudyView: View {
     ) async throws -> HandwritingRecognition {
         let trimmed = typed.trimmingCharacters(in: .whitespacesAndNewlines)
         if (typingIsPrimary || showTypeFallback), !trimmed.isEmpty {
-            return HandwritingRecognizer.resolveTyped(trimmed, expectedAnswers: expected)
+            return HandwritingRecognizer.resolveTyped(trimmed)
         }
         return try await HandwritingRecognizer.recognizeGerman(
             from: drawing,
@@ -538,48 +618,56 @@ struct StudyView: View {
     }
 
     private var sessionComplete: some View {
-        ContentUnavailableView(
-            "Session complete",
-            systemImage: "checkmark.circle",
-            description: Text("Great work. Come back tomorrow for the next set.")
-        )
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            Button {
-                dismiss()
-            } label: {
-                Text("Done")
-                    .frame(maxWidth: .infinity)
+        ContentUnavailableView {
+            VStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 52))
+                    .foregroundStyle(.green)
+                    .symbolEffect(.bounce, value: initialCount)
+                Text("Session complete")
+                    .font(.title2.bold())
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .frame(maxWidth: 420)
-            .padding()
-            .frame(maxWidth: .infinity)
-            .background(.bar)
+        } description: {
+            Text("Great work. Come back tomorrow for the next set.")
+        }
+        .safeAreaBar(edge: .bottom) {
+            BottomActionBar {
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Done")
+                        .frame(maxWidth: .infinity)
+                }
+                .prominentGlassCapsule()
+                .actionColumn()
+            }
         }
     }
 
     private func ratingRow(for item: StudyItem) -> some View {
-        Group {
-            if horizontalSizeClass == .compact {
-                VStack(spacing: 8) {
-                    HStack(spacing: 8) {
+        GlassEffectContainer(spacing: 10) {
+            Group {
+                if horizontalSizeClass == .compact {
+                    VStack(spacing: 10) {
+                        HStack(spacing: 10) {
+                            ratingButton("Again", tint: .red, rating: .again, item: item)
+                            ratingButton("Hard", tint: .orange, rating: .hard, item: item)
+                        }
+                        HStack(spacing: 10) {
+                            ratingButton("Good", tint: .blue, rating: .good, item: item)
+                            ratingButton("Easy", tint: .green, rating: .easy, item: item)
+                        }
+                    }
+                } else {
+                    HStack(spacing: 10) {
                         ratingButton("Again", tint: .red, rating: .again, item: item)
                         ratingButton("Hard", tint: .orange, rating: .hard, item: item)
-                    }
-                    HStack(spacing: 8) {
                         ratingButton("Good", tint: .blue, rating: .good, item: item)
                         ratingButton("Easy", tint: .green, rating: .easy, item: item)
                     }
                 }
-            } else {
-                HStack(spacing: 8) {
-                    ratingButton("Again", tint: .red, rating: .again, item: item)
-                    ratingButton("Hard", tint: .orange, rating: .hard, item: item)
-                    ratingButton("Good", tint: .blue, rating: .good, item: item)
-                    ratingButton("Easy", tint: .green, rating: .easy, item: item)
-                }
             }
+            .actionColumn()
         }
         .disabled(isSubmitting)
     }
@@ -594,10 +682,10 @@ struct StudyView: View {
             Task { await submit(rating: rating, item: item) }
         } label: {
             Text(title)
+                .font(.body.weight(.semibold))
                 .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.bordered)
-        .controlSize(.large)
+        .glassCapsule()
         .tint(tint)
     }
 

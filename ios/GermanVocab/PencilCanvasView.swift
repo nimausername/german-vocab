@@ -71,27 +71,36 @@ struct WritingPad: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(prompt)
-                    .font(.subheadline)
+                Label(prompt, systemImage: "pencil.and.scribble")
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Button("Clear") {
+                Button("Clear", systemImage: "eraser") {
                     store.clear()
                 }
-                .font(.subheadline)
+                .labelStyle(.titleAndIcon)
+                .glassCapsule(size: .small)
                 .disabled(!isEnabled || !store.hasStrokes)
                 .accessibilityLabel("Clear writing")
             }
 
             // White paper and black ink stay fixed so recognition keeps contrast in Dark Mode.
             PencilCanvasView(store: store, isEnabled: isEnabled)
-                .frame(maxWidth: .infinity, minHeight: 180, maxHeight: 220)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .frame(maxWidth: .infinity, minHeight: 200, maxHeight: 260)
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
                         .strokeBorder(Color(.separator), lineWidth: 1)
-                )
+                }
+                .overlay {
+                    Rectangle()
+                        .fill(Color.black.opacity(0.08))
+                        .frame(height: 1)
+                        .padding(.horizontal, 28)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
                 .accessibilityLabel("Handwriting pad")
                 .accessibilityHint("Write with Apple Pencil")
         }

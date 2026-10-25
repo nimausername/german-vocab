@@ -6,7 +6,7 @@ The seed corpus is **4000 lemmas**, ordered so everyday sentences come first. Th
 
 ## Features
 
-- Native **SwiftUI** app for iPhone, iPad, and Apple Watch (no Expo). iPhone study is typed; iPad study uses Apple Pencil, with typing as a fallback. The watch shows the German word, then **Learned** or **Not yet**.
+- Native **SwiftUI** app for iPhone, iPad, and Apple Watch (no Expo). The iPhone and iPad app requires **iOS 26 or later** and uses Liquid Glass navigation, tabs, and controls. iPhone study is typed; iPad study uses Apple Pencil, with typing as a fallback. The watch shows the German word, then **Learned** or **Not yet**.
 - Reminders you can place through the day. Later ones mention the streak when today's session is still unfinished. Apple Watch shows them when the iPhone is locked.
 - In-app login via **Keycloak** (password grant; no browser redirect)
 - Daily plan: due reviews + limited new words
@@ -57,7 +57,7 @@ Create at least one user, then log in from the app.
 
 ### 3. iPhone or iPad app
 
-1. Open `ios/GermanVocab.xcodeproj` in Xcode.
+1. Open `ios/GermanVocab.xcodeproj` in Xcode. The iPhone and iPad target requires iOS 26 or later.
 2. Select your development team (Signing & Capabilities).
 3. Set `AppConfig.apiBaseURL` in `ios/GermanVocab/Config.swift`.
 4. Choose your iPhone or iPad as the run destination and run (⌘R).

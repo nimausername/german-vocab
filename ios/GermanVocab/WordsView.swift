@@ -59,17 +59,24 @@ struct WordsView: View {
                 ProgressView("Loading words")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let errorMessage, words.isEmpty {
-                ContentUnavailableView(
-                    "Couldn’t load words",
-                    systemImage: "exclamationmark.triangle",
-                    description: Text(errorMessage)
-                )
+                LoadFailureView(title: "Couldn’t load words", message: errorMessage) {
+                    Task { await reload() }
+                }
             } else if words.isEmpty {
-                ContentUnavailableView(
-                    "No words found",
-                    systemImage: "text.book.closed",
-                    description: Text("Try another search or filter.")
-                )
+                ContentUnavailableView {
+                    Label("No words found", systemImage: "text.book.closed")
+                } description: {
+                    Text("Try another search or filter.")
+                } actions: {
+                    if filtersAreActive || !searchText.isEmpty {
+                        Button("Clear Search and Filters") {
+                            searchText = ""
+                            status = .all
+                            gender = .all
+                        }
+                        .glassCapsule(size: .regular)
+                    }
+                }
             } else {
                 wordList
             }
@@ -144,7 +151,7 @@ struct WordsView: View {
                         }
                 }
             } header: {
-                Text("\(total) words")
+                Text("\(total.formatted()) words")
             }
 
             if isLoadingMore {
@@ -225,17 +232,14 @@ private struct WordRow: View {
     let word: LexiconWord
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    if let article = word.article {
-                        Text(article)
-                            .foregroundStyle(AppTheme.genderColor(for: article))
-                    }
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    ArticleText(article: word.article)
                     Text(word.displayNoun)
+                        .font(.body.weight(.medium))
                         .foregroundStyle(.primary)
                 }
-                .font(.body)
 
                 Text(word.glossEn)
                     .font(.subheadline)
@@ -245,16 +249,22 @@ private struct WordRow: View {
 
             Spacer(minLength: 8)
 
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 6) {
                 Text(word.cefrLevel)
-                    .font(.caption)
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.fill.tertiary, in: Capsule())
 
-                Text(word.progress.learned ? "Learned" : "New")
-                    .font(.caption)
-                    .foregroundStyle(word.progress.learned ? Color.green : Color.orange)
+                StatusChip(
+                    title: word.progress.learned ? "Learned" : "New",
+                    tint: word.progress.learned ? .green : .orange,
+                    systemImage: word.progress.learned ? "checkmark" : "sparkle"
+                )
             }
         }
+        .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(word.headwordWithArticle), \(word.glossEn)")
     }

@@ -12,7 +12,7 @@ struct TokenPayload: Decodable {
     let tokenType: String
 }
 
-struct StudyItem: Decodable, Identifiable {
+struct StudyItem: Codable, Identifiable {
     let cardId: String
     let wordId: String
     let lemma: String
@@ -200,7 +200,7 @@ enum WordListStatus: String, CaseIterable, Identifiable {
         switch self {
         case .all: return "All"
         case .learned: return "Learned"
-        case .new: return "Not learned"
+        case .new: return "Not Learned"
         }
     }
 }

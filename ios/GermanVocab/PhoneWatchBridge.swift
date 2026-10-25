@@ -9,14 +9,21 @@ final class PhoneWatchBridge: NSObject, WCSessionDelegate {
     var onRemoteTokens: ((String, String) -> Void)?
 
     private let lock = NSLock()
+    private let defaults = UserDefaults.standard
     private var accessToken = ""
     private var refreshToken = ""
+    private var planStamp = ""
+
+    private enum Keys {
+        static let planStamp = "watchPlanStamp"
+    }
 
     private override init() {
         super.init()
     }
 
     func start(accessToken: String?, refreshToken: String?) {
+        planStamp = defaults.string(forKey: Keys.planStamp) ?? ""
         store(accessToken: accessToken, refreshToken: refreshToken)
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
@@ -26,10 +33,17 @@ final class PhoneWatchBridge: NSObject, WCSessionDelegate {
 
     func push(accessToken: String?, refreshToken: String?) {
         store(accessToken: accessToken, refreshToken: refreshToken)
-        guard WCSession.isSupported() else { return }
-        let session = WCSession.default
-        guard session.activationState == .activated else { return }
-        try? session.updateApplicationContext(context())
+        if (accessToken ?? "").isEmpty {
+            setPlanStamp("")
+        }
+        transmit()
+    }
+
+    /// Tells the watch that the phone's copy of today's queue changed.
+    func updatePlanStamp(_ stamp: String) {
+        guard stamp != currentPlanStamp() else { return }
+        setPlanStamp(stamp)
+        transmit()
     }
 
     func session(
@@ -81,12 +95,37 @@ final class PhoneWatchBridge: NSObject, WCSessionDelegate {
         lock.unlock()
     }
 
+    private func currentPlanStamp() -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        return planStamp
+    }
+
+    private func setPlanStamp(_ stamp: String) {
+        lock.lock()
+        planStamp = stamp
+        lock.unlock()
+        if stamp.isEmpty {
+            defaults.removeObject(forKey: Keys.planStamp)
+        } else {
+            defaults.set(stamp, forKey: Keys.planStamp)
+        }
+    }
+
+    private func transmit() {
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated else { return }
+        try? session.updateApplicationContext(context())
+    }
+
     private func context() -> [String: Any] {
         lock.lock()
         defer { lock.unlock() }
         return [
             WatchSyncKey.access: accessToken,
             WatchSyncKey.refresh: refreshToken,
+            WatchSyncKey.planStamp: planStamp,
         ]
     }
 }
