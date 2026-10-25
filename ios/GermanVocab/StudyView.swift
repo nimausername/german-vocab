@@ -6,10 +6,10 @@ private enum StudyStage: Int {
     case writeCloze = 1
     case rate = 2
 
-    var title: String {
+    func title(typing: Bool) -> String {
         switch self {
-        case .writeWord: return "Write the word"
-        case .writeCloze: return "Write the sentence"
+        case .writeWord: return typing ? "Type the word" : "Write the word"
+        case .writeCloze: return typing ? "Type the sentence" : "Write the sentence"
         case .rate: return "Rate this card"
         }
     }
@@ -18,6 +18,7 @@ private enum StudyStage: Int {
 struct StudyView: View {
     @EnvironmentObject private var session: SessionStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var queue: [StudyItem]
     @State private var initialCount: Int
@@ -37,6 +38,16 @@ struct StudyView: View {
     @State private var isRecognizing = false
     @State private var typedAnswer = ""
     @State private var showTypeFallback = false
+    @FocusState private var typingFocused: Bool
+
+    /// iPhone has no Apple Pencil, so production is typed.
+    private var typingIsPrimary: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone
+    }
+
+    private var showsTypingField: Bool {
+        typingIsPrimary || showTypeFallback
+    }
 
     @State private var startedAt = Date()
     @State private var errorMessage: String?
@@ -83,7 +94,7 @@ struct StudyView: View {
         ScrollView {
             VStack(spacing: 24) {
                 ProgressView(value: progress) {
-                    Text(stage.title)
+                    Text(stage.title(typing: typingIsPrimary))
                 } currentValueLabel: {
                     Text("\(completed) of \(initialCount)")
                         .monospacedDigit()
@@ -105,6 +116,7 @@ struct StudyView: View {
             .frame(maxWidth: .infinity)
             .padding(24)
         }
+        .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             bottomBar(for: current)
         }
@@ -125,22 +137,20 @@ struct StudyView: View {
                 .font(.largeTitle.bold())
                 .multilineTextAlignment(.center)
 
-            Text(
-                current.article == nil
-                    ? "Write the German word with Apple Pencil"
-                    : "Write article + word (e.g. die Frau)"
-            )
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.center)
+            Text(wordPrompt(for: current))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
 
-            WritingPad(
-                store: wordCanvas,
-                isEnabled: !wordChecked && !isRecognizing,
-                prompt: "Writing pad"
-            )
+            if !typingIsPrimary {
+                WritingPad(
+                    store: wordCanvas,
+                    isEnabled: !wordChecked && !isRecognizing,
+                    prompt: "Writing pad"
+                )
+            }
 
-            if showTypeFallback && !wordChecked {
+            if showsTypingField && !wordChecked {
                 typeFallbackField(hint: "Type article + word") {
                     Task { await checkWordWriting(for: current) }
                 }
@@ -163,7 +173,7 @@ struct StudyView: View {
         let prompt = clozePrompt ?? ClozeSupport.makePrompt(for: current)
 
         return VStack(spacing: 16) {
-            Text("Write what fits the blank")
+            Text(typingIsPrimary ? "Type what fits the blank" : "Write what fits the blank")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -176,13 +186,15 @@ struct StudyView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            WritingPad(
-                store: clozeCanvas,
-                isEnabled: !clozeChecked && !isRecognizing,
-                prompt: "Writing pad"
-            )
+            if !typingIsPrimary {
+                WritingPad(
+                    store: clozeCanvas,
+                    isEnabled: !clozeChecked && !isRecognizing,
+                    prompt: "Writing pad"
+                )
+            }
 
-            if showTypeFallback && !clozeChecked {
+            if showsTypingField && !clozeChecked {
                 typeFallbackField(hint: prompt.inputHint) {
                     Task { await checkClozeWriting(for: current) }
                 }
@@ -209,8 +221,25 @@ struct StudyView: View {
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .submitLabel(.done)
+            .focused($typingFocused)
             .onSubmit(onSubmit)
+            .onAppear {
+                if typingIsPrimary {
+                    typingFocused = true
+                }
+            }
             .accessibilityLabel(hint)
+    }
+
+    private func wordPrompt(for current: StudyItem) -> String {
+        if typingIsPrimary {
+            return current.article == nil
+                ? "Type the German word"
+                : "Type article + word (e.g. die Frau)"
+        }
+        return current.article == nil
+            ? "Write the German word with Apple Pencil"
+            : "Write article + word (e.g. die Frau)"
     }
 
     // MARK: - Stage 3: Rate
@@ -242,7 +271,12 @@ struct StudyView: View {
             }
 
             if failedProduction {
-                Label("Writing was off — consider Again or Hard", systemImage: "exclamationmark.triangle")
+                Label(
+                    typingIsPrimary
+                        ? "Answer was off — consider Again or Hard"
+                        : "Writing was off — consider Again or Hard",
+                    systemImage: "exclamationmark.triangle"
+                )
                     .font(.subheadline)
                     .foregroundStyle(.orange)
                     .multilineTextAlignment(.center)
@@ -311,8 +345,8 @@ struct StudyView: View {
                     }
                 } else {
                     checkControls(
-                        title: showTypeFallback && !typedAnswer.isEmpty ? "Check typed answer" : "Check writing",
-                        canCheck: wordCanvas.hasStrokes || !typedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        title: checkTitle,
+                        canCheck: canCheckAnswer(hasStrokes: wordCanvas.hasStrokes)
                     ) {
                         Task { await checkWordWriting(for: current) }
                     }
@@ -325,8 +359,8 @@ struct StudyView: View {
                     }
                 } else {
                     checkControls(
-                        title: showTypeFallback && !typedAnswer.isEmpty ? "Check typed answer" : "Check writing",
-                        canCheck: clozeCanvas.hasStrokes || !typedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        title: checkTitle,
+                        canCheck: canCheckAnswer(hasStrokes: clozeCanvas.hasStrokes)
                     ) {
                         Task { await checkClozeWriting(for: current) }
                     }
@@ -372,15 +406,32 @@ struct StudyView: View {
             .frame(maxWidth: 420)
             .disabled(isRecognizing || !canCheck)
 
-            Button(showTypeFallback ? "Hide keyboard" : "Type instead") {
-                withAnimation(.snappy) {
-                    showTypeFallback.toggle()
-                    if !showTypeFallback { typedAnswer = "" }
+            if !typingIsPrimary {
+                Button(showTypeFallback ? "Hide keyboard" : "Type instead") {
+                    withAnimation(.snappy) {
+                        showTypeFallback.toggle()
+                        if !showTypeFallback { typedAnswer = "" }
+                    }
                 }
+                .buttonStyle(.borderless)
+                .disabled(isRecognizing)
             }
-            .buttonStyle(.borderless)
-            .disabled(isRecognizing)
         }
+    }
+
+    private var checkTitle: String {
+        if typingIsPrimary || (showTypeFallback && !typedAnswer.isEmpty) {
+            return "Check typed answer"
+        }
+        return "Check writing"
+    }
+
+    private func canCheckAnswer(hasStrokes: Bool) -> Bool {
+        let typed = !typedAnswer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if typingIsPrimary {
+            return typed
+        }
+        return hasStrokes || typed
     }
 
     private func checkWordWriting(for current: StudyItem) async {
@@ -437,7 +488,7 @@ struct StudyView: View {
         expected: [String]
     ) async throws -> HandwritingRecognition {
         let trimmed = typed.trimmingCharacters(in: .whitespacesAndNewlines)
-        if showTypeFallback, !trimmed.isEmpty {
+        if (typingIsPrimary || showTypeFallback), !trimmed.isEmpty {
             return HandwritingRecognizer.resolveTyped(trimmed, expectedAnswers: expected)
         }
         return try await HandwritingRecognizer.recognizeGerman(
@@ -509,11 +560,26 @@ struct StudyView: View {
     }
 
     private func ratingRow(for item: StudyItem) -> some View {
-        HStack(spacing: 8) {
-            ratingButton("Again", tint: .red, rating: .again, item: item)
-            ratingButton("Hard", tint: .orange, rating: .hard, item: item)
-            ratingButton("Good", tint: .blue, rating: .good, item: item)
-            ratingButton("Easy", tint: .green, rating: .easy, item: item)
+        Group {
+            if horizontalSizeClass == .compact {
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        ratingButton("Again", tint: .red, rating: .again, item: item)
+                        ratingButton("Hard", tint: .orange, rating: .hard, item: item)
+                    }
+                    HStack(spacing: 8) {
+                        ratingButton("Good", tint: .blue, rating: .good, item: item)
+                        ratingButton("Easy", tint: .green, rating: .easy, item: item)
+                    }
+                }
+            } else {
+                HStack(spacing: 8) {
+                    ratingButton("Again", tint: .red, rating: .again, item: item)
+                    ratingButton("Hard", tint: .orange, rating: .hard, item: item)
+                    ratingButton("Good", tint: .blue, rating: .good, item: item)
+                    ratingButton("Easy", tint: .green, rating: .easy, item: item)
+                }
+            }
         }
         .disabled(isSubmitting)
     }

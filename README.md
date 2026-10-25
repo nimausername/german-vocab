@@ -1,12 +1,13 @@
 # German Vocab
 
-Open-source German vocabulary trainer for iPad: spaced repetition (FSRS), a daily study plan, Keycloak auth, and a self-hosted Node API + PostgreSQL.
+Open-source German vocabulary trainer for iPhone and iPad: spaced repetition (FSRS), a daily study plan, Keycloak auth, and a self-hosted Node API + PostgreSQL.
 
 The seed corpus is **4000 lemmas**, ordered so everyday sentences come first. The original 120 A1 words stay at the front. Later words move from function words and high-frequency verbs through concrete nouns into B2 and C1. CEFR labels are teaching bands, not an official exam list.
 
 ## Features
 
-- Native **SwiftUI** iPad app (no Expo)
+- Native **SwiftUI** app for iPhone, iPad, and Apple Watch (no Expo). iPhone study is typed; iPad study uses Apple Pencil, with typing as a fallback. The watch shows the German word, then **Learned** or **Not yet**.
+- A daily 9:00 reminder on iPhone and iPad. Apple Watch shows that reminder when the iPhone is locked.
 - In-app login via **Keycloak** (password grant; no browser redirect)
 - Daily plan: due reviews + limited new words
 - **FSRS** scheduling (Again / Hard / Good / Easy)
@@ -16,14 +17,14 @@ The seed corpus is **4000 lemmas**, ordered so everyday sentences come first. Th
 ## Architecture
 
 ```text
-iPad (SwiftUI)  →  Node API  →  PostgreSQL
+iPhone / iPad / Apple Watch (SwiftUI)  →  Node API  →  PostgreSQL
                       ↓
                    Keycloak
 ```
 
 | Path | Role |
 |---|---|
-| `ios/` | SwiftUI iPad client |
+| `ios/` | SwiftUI iPhone, iPad, and Apple Watch client |
 | `backend/` | Hono + TypeScript API, FSRS, Drizzle |
 | `backend/COOLIFY.md` | Deploy on Coolify |
 
@@ -54,12 +55,14 @@ Create a realm (e.g. `german-vocab`) and a **public** OpenID client with:
 
 Create at least one user, then log in from the app.
 
-### 3. iPad app
+### 3. iPhone or iPad app
 
 1. Open `ios/GermanVocab.xcodeproj` in Xcode.
 2. Select your development team (Signing & Capabilities).
 3. Set `AppConfig.apiBaseURL` in `ios/GermanVocab/Config.swift`.
-4. Run on your iPad (⌘R).
+4. Choose your iPhone or iPad as the run destination and run (⌘R).
+
+The Apple Watch app is installed with the iPhone app. Sign in on the iPhone, then open German Vocab on the watch. A word shows in German; tap **Show meaning**, then **Learned** or **Not yet**.
 
 ## Deploy (Coolify)
 

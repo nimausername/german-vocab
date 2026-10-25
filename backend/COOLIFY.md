@@ -35,7 +35,7 @@ Notes:
 
 Attach a domain in Coolify, e.g. `https://vocab-api.yourdomain.de`, enable HTTPS.
 
-Then set the iPad app:
+Then set the iOS app:
 
 ```swift
 // ios/GermanVocab/Config.swift

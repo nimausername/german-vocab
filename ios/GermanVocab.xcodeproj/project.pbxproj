@@ -7,29 +7,70 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		06FD0874048454C95B401B68 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C61D3C87E7796086A5B20E2E /* APIClient.swift */; };
 		09DB79A39F5EE492DF2F9458 /* ClozeSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075E45E09857E534BDF2BEA8 /* ClozeSupport.swift */; };
 		111ABD4CDFF41A1B8CC30413 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8604458387A92E97258214B0 /* RootView.swift */; };
+		21217AA078FCE29BE46E51EE /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 983FDC34A422E4014DA43B69 /* Theme.swift */; };
+		21CF3A712F130D682AA97E0A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C645DA85EF5241121A34551C /* Assets.xcassets */; };
+		253B84B8813F555A529F4A11 /* WatchStudyModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCE7B418437AD13F24F9F513 /* WatchStudyModel.swift */; };
+		25901D33ABC6E503E851A4D5 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5574A69AD2A82F1397E5D276 /* Models.swift */; };
+		25B73FAE409E1C66F8DB8423 /* WatchStudyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10D98F322F9836FB412A02B1 /* WatchStudyView.swift */; };
 		43E525BF9853B95A1262FCF0 /* PencilCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2F064B04BB9B457CF72556B /* PencilCanvasView.swift */; };
 		45DBED8B568B91EE5BC23939 /* WordsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51AD6E876B0ECEFCDD71895D /* WordsView.swift */; };
+		4E759CA0548F97CDE58C1E9B /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13F1ED7C329A66340935EC08 /* Config.swift */; };
 		5288D80FF693E7D43FE36B6C /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B73A18ECDBB0CEA658465E1 /* TodayView.swift */; };
 		5388AFBABBD184CF4D6A1646 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13F1ED7C329A66340935EC08 /* Config.swift */; };
 		561AB8A7825E85FE34A18E5B /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5574A69AD2A82F1397E5D276 /* Models.swift */; };
+		5BA5BD288C5428548418514E /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0786B1A7CD17FCF9BAD494 /* WatchApp.swift */; };
 		88AEEA92B749433096F7AF2F /* GermanVocabApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2130118127DCD0F03E9C3E /* GermanVocabApp.swift */; };
+		8A995F7673E329D663ED86F6 /* PhoneWatchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 085FD54E9556B246A4BE83ED /* PhoneWatchBridge.swift */; };
 		9338C2C65668A2B0C6C8A716 /* HandwritingRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 833466D1E80DDB1510777BE1 /* HandwritingRecognizer.swift */; };
 		97C71D04D2762A9EF0163855 /* StudyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A8B7BEAA6DD7A738EBFCCC5 /* StudyView.swift */; };
 		A766CD9BEAD60F4DBCF28906 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6351C2778F15D05CD6BDFB0C /* StatsView.swift */; };
 		B0B00F37FD0AB7A720F4B964 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C61D3C87E7796086A5B20E2E /* APIClient.swift */; };
 		D26D3FDAA13B285014A87487 /* WordDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC8B5CF8C5B3C550D483945C /* WordDetailView.swift */; };
 		D4A2C0FDAF0D0BB62C492178 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 983FDC34A422E4014DA43B69 /* Theme.swift */; };
+		D689888CB8F2C94B626A4558 /* StudyNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BB61C93F6BE5598A55814F1 /* StudyNotificationScheduler.swift */; };
 		DA0BC2315247C5C53E7B6367 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7027BF2274E8CFC70506FF5 /* SessionStore.swift */; };
 		E626F6238073FF76DBFF1F5E /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF88CE9F90D276253F5F0FAF /* LoginView.swift */; };
+		EE19EFCD33AE31B23FD8C694 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1B29F73ECE29971DA5B0CBD7 /* Assets.xcassets */; };
 		FE08793E1F076FD151746208 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71F07513DCA499AAA60D78CD /* SettingsView.swift */; };
+		FE99599D3C77AC56A4F780D3 /* GermanVocabWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 44308B8B467832950F6D47F9 /* GermanVocabWatch.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B564092B68749460EE9FC2A1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2A8B2D11CCCA014FC1711887 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AD671479F5C703CE472BD12C;
+			remoteInfo = GermanVocabWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		4D13C18231CBD668916D6316 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				FE99599D3C77AC56A4F780D3 /* GermanVocabWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		075E45E09857E534BDF2BEA8 /* ClozeSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClozeSupport.swift; sourceTree = "<group>"; };
+		085FD54E9556B246A4BE83ED /* PhoneWatchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneWatchBridge.swift; sourceTree = "<group>"; };
+		10D98F322F9836FB412A02B1 /* WatchStudyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchStudyView.swift; sourceTree = "<group>"; };
 		13F1ED7C329A66340935EC08 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+		1B29F73ECE29971DA5B0CBD7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		36DD9CBFC70F6FF85E98A65A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		3BB61C93F6BE5598A55814F1 /* StudyNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyNotificationScheduler.swift; sourceTree = "<group>"; };
+		44308B8B467832950F6D47F9 /* GermanVocabWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GermanVocabWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4B73A18ECDBB0CEA658465E1 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		51AD6E876B0ECEFCDD71895D /* WordsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordsView.swift; sourceTree = "<group>"; };
 		5574A69AD2A82F1397E5D276 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
@@ -42,7 +83,10 @@
 		983FDC34A422E4014DA43B69 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		BF88CE9F90D276253F5F0FAF /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		C61D3C87E7796086A5B20E2E /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		C645DA85EF5241121A34551C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CA0786B1A7CD17FCF9BAD494 /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
 		D7027BF2274E8CFC70506FF5 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		DCE7B418437AD13F24F9F513 /* WatchStudyModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchStudyModel.swift; sourceTree = "<group>"; };
 		F2F064B04BB9B457CF72556B /* PencilCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilCanvasView.swift; sourceTree = "<group>"; };
 		F2F71343D54EA88FC5E4C6B9 /* GermanVocab.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GermanVocab.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8B5CF8C5B3C550D483945C /* WordDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordDetailView.swift; sourceTree = "<group>"; };
@@ -53,14 +97,27 @@
 			isa = PBXGroup;
 			children = (
 				D84F33AE0D292C177A31E569 /* GermanVocab */,
+				ADE9D54EF7FAB1920045E389 /* GermanVocabWatch */,
 				D5B8B714A6FF44E3A7CD3C4B /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		ADE9D54EF7FAB1920045E389 /* GermanVocabWatch */ = {
+			isa = PBXGroup;
+			children = (
+				C645DA85EF5241121A34551C /* Assets.xcassets */,
+				CA0786B1A7CD17FCF9BAD494 /* WatchApp.swift */,
+				DCE7B418437AD13F24F9F513 /* WatchStudyModel.swift */,
+				10D98F322F9836FB412A02B1 /* WatchStudyView.swift */,
+			);
+			path = GermanVocabWatch;
 			sourceTree = "<group>";
 		};
 		D5B8B714A6FF44E3A7CD3C4B /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				F2F71343D54EA88FC5E4C6B9 /* GermanVocab.app */,
+				44308B8B467832950F6D47F9 /* GermanVocabWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -69,6 +126,7 @@
 			isa = PBXGroup;
 			children = (
 				C61D3C87E7796086A5B20E2E /* APIClient.swift */,
+				1B29F73ECE29971DA5B0CBD7 /* Assets.xcassets */,
 				075E45E09857E534BDF2BEA8 /* ClozeSupport.swift */,
 				13F1ED7C329A66340935EC08 /* Config.swift */,
 				5C2130118127DCD0F03E9C3E /* GermanVocabApp.swift */,
@@ -77,10 +135,12 @@
 				BF88CE9F90D276253F5F0FAF /* LoginView.swift */,
 				5574A69AD2A82F1397E5D276 /* Models.swift */,
 				F2F064B04BB9B457CF72556B /* PencilCanvasView.swift */,
+				085FD54E9556B246A4BE83ED /* PhoneWatchBridge.swift */,
 				8604458387A92E97258214B0 /* RootView.swift */,
 				D7027BF2274E8CFC70506FF5 /* SessionStore.swift */,
 				71F07513DCA499AAA60D78CD /* SettingsView.swift */,
 				6351C2778F15D05CD6BDFB0C /* StatsView.swift */,
+				3BB61C93F6BE5598A55814F1 /* StudyNotificationScheduler.swift */,
 				6A8B7BEAA6DD7A738EBFCCC5 /* StudyView.swift */,
 				983FDC34A422E4014DA43B69 /* Theme.swift */,
 				4B73A18ECDBB0CEA658465E1 /* TodayView.swift */,
@@ -98,16 +158,37 @@
 			buildConfigurationList = F18A56F9CBF57E48F1ADF2F8 /* Build configuration list for PBXNativeTarget "GermanVocab" */;
 			buildPhases = (
 				359D376273F0F61C7AC9A213 /* Sources */,
+				CCEBA6D0475915F9E53DF5D0 /* Resources */,
+				4D13C18231CBD668916D6316 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				7C38E060FE6D6EE553FE2E8F /* PBXTargetDependency */,
 			);
 			name = GermanVocab;
 			packageProductDependencies = (
 			);
 			productName = GermanVocab;
 			productReference = F2F71343D54EA88FC5E4C6B9 /* GermanVocab.app */;
+			productType = "com.apple.product-type.application";
+		};
+		AD671479F5C703CE472BD12C /* GermanVocabWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 74EE4315A77858A329523039 /* Build configuration list for PBXNativeTarget "GermanVocabWatch" */;
+			buildPhases = (
+				9A734A0A98558A817B79D8B6 /* Sources */,
+				2765FBAF03727489C88E4C02 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GermanVocabWatch;
+			packageProductDependencies = (
+			);
+			productName = GermanVocabWatch;
+			productReference = 44308B8B467832950F6D47F9 /* GermanVocabWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -120,6 +201,9 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					50A9BE20B78486AA6AC6F064 = {
+						DevelopmentTeam = KK43VTCM64;
+					};
+					AD671479F5C703CE472BD12C = {
 						DevelopmentTeam = KK43VTCM64;
 					};
 				};
@@ -139,9 +223,29 @@
 			projectRoot = "";
 			targets = (
 				50A9BE20B78486AA6AC6F064 /* GermanVocab */,
+				AD671479F5C703CE472BD12C /* GermanVocabWatch */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		2765FBAF03727489C88E4C02 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				21CF3A712F130D682AA97E0A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CCEBA6D0475915F9E53DF5D0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EE19EFCD33AE31B23FD8C694 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		359D376273F0F61C7AC9A213 /* Sources */ = {
@@ -156,10 +260,12 @@
 				E626F6238073FF76DBFF1F5E /* LoginView.swift in Sources */,
 				561AB8A7825E85FE34A18E5B /* Models.swift in Sources */,
 				43E525BF9853B95A1262FCF0 /* PencilCanvasView.swift in Sources */,
+				8A995F7673E329D663ED86F6 /* PhoneWatchBridge.swift in Sources */,
 				111ABD4CDFF41A1B8CC30413 /* RootView.swift in Sources */,
 				DA0BC2315247C5C53E7B6367 /* SessionStore.swift in Sources */,
 				FE08793E1F076FD151746208 /* SettingsView.swift in Sources */,
 				A766CD9BEAD60F4DBCF28906 /* StatsView.swift in Sources */,
+				D689888CB8F2C94B626A4558 /* StudyNotificationScheduler.swift in Sources */,
 				97C71D04D2762A9EF0163855 /* StudyView.swift in Sources */,
 				D4A2C0FDAF0D0BB62C492178 /* Theme.swift in Sources */,
 				5288D80FF693E7D43FE36B6C /* TodayView.swift in Sources */,
@@ -168,13 +274,36 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9A734A0A98558A817B79D8B6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				06FD0874048454C95B401B68 /* APIClient.swift in Sources */,
+				4E759CA0548F97CDE58C1E9B /* Config.swift in Sources */,
+				25901D33ABC6E503E851A4D5 /* Models.swift in Sources */,
+				21217AA078FCE29BE46E51EE /* Theme.swift in Sources */,
+				5BA5BD288C5428548418514E /* WatchApp.swift in Sources */,
+				253B84B8813F555A529F4A11 /* WatchStudyModel.swift in Sources */,
+				25B73FAE409E1C66F8DB8423 /* WatchStudyView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7C38E060FE6D6EE553FE2E8F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AD671479F5C703CE472BD12C /* GermanVocabWatch */;
+			targetProxy = B564092B68749460EE9FC2A1 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		951056632FB3A46B1BEA9016 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				BASE_SDK = iphoneos;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = KK43VTCM64;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -186,17 +315,35 @@
 				PRODUCT_BUNDLE_IDENTIFIER = de.nimakhabbazi.germanvocab;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 2;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
-		B3158482AFE691E964D387E7 /* Release */ = {
+		ACC691C75562755A9422F0FB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = KK43VTCM64;
 				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = GermanVocabWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = de.nimakhabbazi.germanvocab.watchkitapp;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		B3158482AFE691E964D387E7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				BASE_SDK = iphoneos;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = KK43VTCM64;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = GermanVocab/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -205,7 +352,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = de.nimakhabbazi.germanvocab;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 2;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -213,7 +360,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				BASE_SDK = iphoneos;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -245,6 +391,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = KK43VTCM64;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -259,10 +406,10 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Release;
 		};
@@ -270,7 +417,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				BASE_SDK = iphoneos;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -302,6 +448,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = KK43VTCM64;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -323,16 +470,42 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		D94DC29B7BB2CF69EC2C0445 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = KK43VTCM64;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = GermanVocabWatch/Info.plist;
+				PRODUCT_BUNDLE_IDENTIFIER = de.nimakhabbazi.germanvocab.watchkitapp;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Debug;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		74EE4315A77858A329523039 /* Build configuration list for PBXNativeTarget "GermanVocabWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D94DC29B7BB2CF69EC2C0445 /* Debug */,
+				ACC691C75562755A9422F0FB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		7A3D3E9D32848CF1FF9BDD95 /* Build configuration list for PBXProject "GermanVocab" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

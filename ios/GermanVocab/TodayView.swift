@@ -115,6 +115,9 @@ struct TodayView: View {
         defer { isLoading = false }
         do {
             plan = try await session.loadTodayPlan()
+            if let plan, plan.queue.count > 0 {
+                await StudyNotificationScheduler.scheduleDailyReminder(wordCount: plan.queue.count)
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

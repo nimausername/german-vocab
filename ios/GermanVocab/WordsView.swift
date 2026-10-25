@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WordsView: View {
     @EnvironmentObject private var session: SessionStore
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var words: [LexiconWord] = []
     @State private var total = 0
@@ -25,20 +26,31 @@ struct WordsView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            sidebar
-        } detail: {
-            if let selectedWord {
-                WordDetailView(word: selectedWord)
-            } else {
-                ContentUnavailableView(
-                    "No word selected",
-                    systemImage: "text.book.closed",
-                    description: Text("Choose a word from the list.")
-                )
+        if horizontalSizeClass == .compact {
+            NavigationStack {
+                sidebar
+                    .navigationDestination(for: String.self) { id in
+                        if let word = words.first(where: { $0.id == id }) {
+                            WordDetailView(word: word)
+                        }
+                    }
             }
+        } else {
+            NavigationSplitView {
+                sidebar
+            } detail: {
+                if let selectedWord {
+                    WordDetailView(word: selectedWord)
+                } else {
+                    ContentUnavailableView(
+                        "No word selected",
+                        systemImage: "text.book.closed",
+                        description: Text("Choose a word from the list.")
+                    )
+                }
+            }
+            .navigationSplitViewStyle(.balanced)
         }
-        .navigationSplitViewStyle(.balanced)
     }
 
     private var sidebar: some View {
@@ -124,8 +136,7 @@ struct WordsView: View {
 
             Section {
                 ForEach(words) { word in
-                    WordRow(word: word)
-                        .tag(word.id)
+                    wordRow(word)
                         .onAppear {
                             if word.id == words.last?.id {
                                 Task { await loadMore() }
@@ -143,6 +154,18 @@ struct WordsView: View {
                     Spacer()
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func wordRow(_ word: LexiconWord) -> some View {
+        if horizontalSizeClass == .compact {
+            NavigationLink(value: word.id) {
+                WordRow(word: word)
+            }
+        } else {
+            WordRow(word: word)
+                .tag(word.id)
         }
     }
 

@@ -4,6 +4,10 @@ import SwiftUI
 struct GermanVocabApp: App {
     @StateObject private var session = SessionStore()
 
+    init() {
+        NotificationPresenter.shared.start()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

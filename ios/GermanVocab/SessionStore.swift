@@ -21,6 +21,13 @@ final class SessionStore: ObservableObject {
         accessToken = defaults.string(forKey: Keys.access)
         refreshToken = defaults.string(forKey: Keys.refresh)
         isAuthenticated = accessToken != nil
+        PhoneWatchBridge.shared.onActivated = { [weak self] in
+            self?.syncWatch()
+        }
+        PhoneWatchBridge.shared.onRemoteTokens = { [weak self] access, refresh in
+            self?.applyRemoteTokens(access: access, refresh: refresh)
+        }
+        PhoneWatchBridge.shared.start(accessToken: accessToken, refreshToken: refreshToken)
     }
 
     func login(username: String, password: String) async {
@@ -42,6 +49,7 @@ final class SessionStore: ObservableObject {
         isAuthenticated = false
         defaults.removeObject(forKey: Keys.access)
         defaults.removeObject(forKey: Keys.refresh)
+        syncWatch()
     }
 
     func validAccessToken() async throws -> String {
@@ -120,5 +128,31 @@ final class SessionStore: ObservableObject {
         isAuthenticated = true
         defaults.set(tokens.accessToken, forKey: Keys.access)
         defaults.set(tokens.refreshToken, forKey: Keys.refresh)
+        syncWatch()
+    }
+
+    private func syncWatch() {
+        PhoneWatchBridge.shared.push(accessToken: accessToken, refreshToken: refreshToken)
+    }
+
+    /// Applies a session the watch refreshed, without sending it straight back.
+    private func applyRemoteTokens(access: String, refresh: String) {
+        if access.isEmpty || refresh.isEmpty {
+            guard isAuthenticated else { return }
+            accessToken = nil
+            refreshToken = nil
+            isAuthenticated = false
+            defaults.removeObject(forKey: Keys.access)
+            defaults.removeObject(forKey: Keys.refresh)
+            PhoneWatchBridge.shared.push(accessToken: nil, refreshToken: nil)
+            return
+        }
+        guard access != accessToken || refresh != refreshToken else { return }
+        accessToken = access
+        refreshToken = refresh
+        isAuthenticated = true
+        defaults.set(access, forKey: Keys.access)
+        defaults.set(refresh, forKey: Keys.refresh)
+        PhoneWatchBridge.shared.push(accessToken: access, refreshToken: refresh)
     }
 }

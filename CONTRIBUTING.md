@@ -20,7 +20,7 @@ pnpm start:dev
 1. Open `ios/GermanVocab.xcodeproj` in Xcode.
 2. Set your Apple ID team under Signing.
 3. Point `AppConfig.apiBaseURL` at your API.
-4. Run on an iPad or simulator.
+4. Run on an iPhone, iPad, or simulator.
 
 ## Guidelines
 
