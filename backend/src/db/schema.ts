@@ -13,19 +13,23 @@ import {
 /**
  * Curriculum word entry.
  */
-export const words = pgTable('words', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  lemma: varchar('lemma', { length: 128 }).notNull(),
-  gender: varchar('gender', { length: 16 }),
-  plural: varchar('plural', { length: 128 }),
-  glossEn: varchar('gloss_en', { length: 256 }).notNull(),
-  cefrLevel: varchar('cefr_level', { length: 8 }).notNull(),
-  exampleDe: text('example_de').notNull(),
-  exampleEn: text('example_en').notNull(),
-  sortOrder: integer('sort_order').notNull(),
-  tags: jsonb('tags').$type<string[]>().notNull().default([]),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
+export const words = pgTable(
+  'words',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    lemma: varchar('lemma', { length: 128 }).notNull(),
+    gender: varchar('gender', { length: 16 }),
+    plural: varchar('plural', { length: 128 }),
+    glossEn: varchar('gloss_en', { length: 256 }).notNull(),
+    cefrLevel: varchar('cefr_level', { length: 8 }).notNull(),
+    exampleDe: text('example_de').notNull(),
+    exampleEn: text('example_en').notNull(),
+    sortOrder: integer('sort_order').notNull(),
+    tags: jsonb('tags').$type<string[]>().notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [unique('words_lemma_uidx').on(table.lemma)],
+)
 
 /**
  * App user mapped from Keycloak subject.

@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/scripts/seed.ts",
-    "db:setup": "pnpm db:push && pnpm db:seed"
+    "db:setup": "pnpm db:push && pnpm db:seed",
+    "corpus:check": "tsx src/scripts/validate-corpus.ts"
   },
   "packageManager": "pnpm@12.15.0",
   "dependencies": {

@@ -9,7 +9,7 @@ export type SeedWord = {
   tags: string[]
 }
 
-/** Starter A1 corpus (expand toward 4000 later). */
+/** Original A1 starter set. Kept first so existing study order does not change. */
 export const a1Words: SeedWord[] = [
   { lemma: 'ich', gender: null, plural: null, glossEn: 'I', cefrLevel: 'A1', exampleDe: 'Ich lerne Deutsch.', exampleEn: 'I am learning German.', tags: ['pronoun'] },
   { lemma: 'du', gender: null, plural: null, glossEn: 'you (informal)', cefrLevel: 'A1', exampleDe: 'Woher kommst du?', exampleEn: 'Where are you from?', tags: ['pronoun'] },

@@ -28,10 +28,10 @@ pnpm start:dev
 - Prefer small, focused pull requests.
 - Keep API responses camelCase and shaped as `{ data, meta }` / `{ error, meta }`.
 - Add or update docs when behavior changes.
+- The seed corpus is 4000 lemmas. New words belong in `backend/src/data/lexicon/`, and every lemma must stay unique. Check with `pnpm --dir backend corpus:check`.
 
 ## Ideas welcome
 
-- Larger CEFR word lists (A1→C1 toward ~4000)
 - Cloze / typing drills
 - Audio (TTS)
 - Offline sync

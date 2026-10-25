@@ -60,7 +60,7 @@ cd backend
 pnpm db:setup
 ```
 
-`db:seed` is safe to re-run: it skips if words already exist.
+`db:seed` is safe to re-run. It matches rows by lemma, inserts words that are missing, and refreshes gloss, examples, level, tags, and study order. Existing card ids and review progress stay in place. Run `pnpm db:push` first so the unique index on `lemma` exists.
 
 ## Verify
 

@@ -1,4 +1,4 @@
-import { and, asc, eq, lte } from 'drizzle-orm'
+import { and, asc, eq, isNull, lte } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { cards, dailyPlans, words, type UserProfile } from '../db/schema.js'
 import { formatDateInTimezone } from '../lib/dates.js'
@@ -45,13 +45,6 @@ export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
     .orderBy(asc(cards.due))
     .limit(200)
 
-  const knownWordIds = await db
-    .select({ wordId: cards.wordId })
-    .from(cards)
-    .where(eq(cards.userId, user.id))
-
-  const knownSet = new Set(knownWordIds.map((row) => row.wordId))
-
   const [planRow] = await db
     .select()
     .from(dailyPlans)
@@ -61,13 +54,18 @@ export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
   const alreadyIntroducedToday = planRow?.newCount ?? 0
   const newSlots = Math.max(0, user.dailyNewLimit - alreadyIntroducedToday)
 
-  const candidates = await db
-    .select()
-    .from(words)
-    .orderBy(asc(words.sortOrder))
-    .limit(user.dailyNewLimit + knownSet.size + 50)
+  const newWordRows =
+    newSlots === 0
+      ? []
+      : await db
+          .select({ word: words })
+          .from(words)
+          .leftJoin(cards, and(eq(cards.wordId, words.id), eq(cards.userId, user.id)))
+          .where(isNull(cards.id))
+          .orderBy(asc(words.sortOrder))
+          .limit(newSlots)
 
-  const newWords = candidates.filter((word) => !knownSet.has(word.id)).slice(0, newSlots)
+  const newWords = newWordRows.map((row) => row.word)
 
   const reviewItems: StudyItem[] = dueCards.map(({ card, word }) => ({
     cardId: card.id,

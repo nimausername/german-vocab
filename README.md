@@ -2,7 +2,7 @@
 
 Open-source German vocabulary trainer for iPad: spaced repetition (FSRS), a daily study plan, Keycloak auth, and a self-hosted Node API + PostgreSQL.
 
-Built to learn German from beginner toward advanced (~4000 lemmas over time). Today the seed corpus includes **120 A1 words**.
+The seed corpus is **4000 lemmas**, ordered so everyday sentences come first. The original 120 A1 words stay at the front. Later words move from function words and high-frequency verbs through concrete nouns into B2 and C1. CEFR labels are teaching bands, not an official exam list.
 
 ## Features
 
@@ -89,7 +89,6 @@ Review ratings: `1=Again`, `2=Hard`, `3=Good`, `4=Easy`
 
 ## Roadmap
 
-- Expand corpus toward ~4000 words (A1→C1)
 - Cloze / production drills
 - Audio (TTS)
 - Offline cache
