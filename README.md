@@ -7,7 +7,7 @@ The seed corpus is **4000 lemmas**, ordered so everyday sentences come first. Th
 ## Features
 
 - Native **SwiftUI** app for iPhone, iPad, and Apple Watch (no Expo). iPhone study is typed; iPad study uses Apple Pencil, with typing as a fallback. The watch shows the German word, then **Learned** or **Not yet**.
-- A daily 9:00 reminder on iPhone and iPad. Apple Watch shows that reminder when the iPhone is locked.
+- Reminders you can place through the day. Later ones mention the streak when today's session is still unfinished. Apple Watch shows them when the iPhone is locked.
 - In-app login via **Keycloak** (password grant; no browser redirect)
 - Daily plan: due reviews + limited new words
 - **FSRS** scheduling (Again / Hard / Good / Easy)
@@ -80,13 +80,14 @@ After deploy, point `Config.swift` at your HTTPS API URL and rebuild the app.
 | GET | `/v1/plans/today` | Bearer |
 | POST | `/v1/reviews` | Bearer |
 | GET | `/v1/stats` | Bearer |
+| PATCH | `/v1/settings` | Bearer |
 
 Review ratings: `1=Again`, `2=Hard`, `3=Good`, `4=Easy`
 
 ## Learning model
 
 1. Words are ordered by `sortOrder` / CEFR.
-2. Each day: all **due** cards + up to **N** new words (default 20).
+2. Each day: all **due** cards + up to **N** new words (default 20, changeable in Settings from 1 to 50).
 3. You recall, reveal, and rate; FSRS sets the next `due` time.
 4. Progress is stored per Keycloak user in PostgreSQL.
 

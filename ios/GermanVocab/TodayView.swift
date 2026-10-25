@@ -41,6 +41,11 @@ struct TodayView: View {
             }
             .task { await load() }
             .refreshable { await load() }
+            .onChange(of: showStudy) { _, isShowing in
+                if !isShowing {
+                    Task { await load() }
+                }
+            }
             .navigationDestination(isPresented: $showStudy) {
                 if let plan {
                     StudyView(initialQueue: plan.queue)
@@ -114,10 +119,18 @@ struct TodayView: View {
         errorMessage = nil
         defer { isLoading = false }
         do {
-            plan = try await session.loadTodayPlan()
-            if let plan, plan.queue.count > 0 {
-                await StudyNotificationScheduler.scheduleDailyReminder(wordCount: plan.queue.count)
-            }
+            async let planTask = session.loadTodayPlan()
+            async let statsTask = session.loadStats()
+            let loadedPlan = try await planTask
+            let stats = try? await statsTask
+            plan = loadedPlan
+            let studied = loadedPlan.studiedToday || (stats?.reviewsToday ?? 0) > 0
+            ReminderContext(
+                streak: loadedPlan.streak,
+                studiedToday: studied,
+                wordCount: loadedPlan.queue.count
+            ).save()
+            await StudyNotificationScheduler.reschedule()
         } catch {
             errorMessage = error.localizedDescription
         }

@@ -70,6 +70,27 @@ struct TodayPlan: Decodable {
     let newRemaining: Int
     let queue: [StudyItem]
     let streak: Int
+    /// True after at least one review today. Missing on older servers.
+    let studiedToday: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case planDate, newLimit, reviewDue, newRemaining, queue, streak, studiedToday
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        planDate = try container.decode(String.self, forKey: .planDate)
+        newLimit = try container.decode(Int.self, forKey: .newLimit)
+        reviewDue = try container.decode(Int.self, forKey: .reviewDue)
+        newRemaining = try container.decode(Int.self, forKey: .newRemaining)
+        queue = try container.decode([StudyItem].self, forKey: .queue)
+        streak = try container.decode(Int.self, forKey: .streak)
+        studiedToday = try container.decodeIfPresent(Bool.self, forKey: .studiedToday) ?? false
+    }
+}
+
+struct DailyLimitUpdate: Decodable {
+    let dailyNewLimit: Int
 }
 
 struct ReviewResult: Decodable {

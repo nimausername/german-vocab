@@ -25,6 +25,7 @@ export type TodayPlan = {
   newRemaining: number
   queue: StudyItem[]
   streak: number
+  studiedToday: boolean
 }
 
 /**
@@ -155,5 +156,6 @@ export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
     newRemaining: Math.max(0, introducedTotal - (planRow?.completedNew ?? 0)),
     queue: [...reviewItems, ...newItems],
     streak: user.streak,
+    studiedToday: user.lastStudyDate === planDate,
   }
 }

@@ -48,6 +48,14 @@ final class APIClient {
         try await get(path: "/v1/plans/today", token: token)
     }
 
+    func updateDailyNewLimit(token: String, limit: Int) async throws -> DailyLimitUpdate {
+        try await patch(
+            path: "/v1/settings",
+            body: ["dailyNewLimit": limit],
+            token: token
+        )
+    }
+
     func submitReview(
         token: String,
         cardId: String,
@@ -131,6 +139,21 @@ final class APIClient {
     ) async throws -> T {
         var request = URLRequest(url: makeURL(path))
         request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return try await send(request)
+    }
+
+    private func patch<T: Decodable>(
+        path: String,
+        body: [String: Any],
+        token: String?
+    ) async throws -> T {
+        var request = URLRequest(url: makeURL(path))
+        request.httpMethod = "PATCH"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")

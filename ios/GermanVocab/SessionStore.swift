@@ -89,6 +89,13 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    func updateDailyNewLimit(_ limit: Int) async throws -> Int {
+        let updated = try await withAuthRetry { token in
+            try await client.updateDailyNewLimit(token: token, limit: limit)
+        }
+        return updated.dailyNewLimit
+    }
+
     func loadStats() async throws -> UserStats {
         try await withAuthRetry { token in
             try await client.stats(token: token)
