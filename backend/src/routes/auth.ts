@@ -104,8 +104,20 @@ authRoutes.post('/register', async (c) => {
     email: typeof body.email === 'string' ? body.email : undefined,
   })
 
-  const data = await passwordGrant(body.username, body.password)
-  return c.json(tokenPayload(data, c.get('requestId')), 201)
+  try {
+    const data = await passwordGrant(body.username, body.password)
+    return c.json(tokenPayload(data, c.get('requestId')), 201)
+  } catch (error) {
+    // User exists; do not return 401 (the app treats that as “session expired”).
+    if (error instanceof AppError) {
+      throw new AppError(
+        409,
+        'ACCOUNT_CREATED',
+        'Account created. Switch to Sign In and use the same password.',
+      )
+    }
+    throw error
+  }
 })
 
 authRoutes.post('/refresh', async (c) => {

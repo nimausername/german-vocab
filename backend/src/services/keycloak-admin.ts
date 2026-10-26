@@ -54,8 +54,80 @@ const adminAccessToken = async (): Promise<string> => {
   return data.access_token
 }
 
+const userIdFromLocation = (location: string | null): string | null => {
+  if (!location) return null
+  const parts = location.split('/').filter(Boolean)
+  return parts.at(-1) ?? null
+}
+
+const findUserIdByUsername = async (token: string, username: string): Promise<string | null> => {
+  const url = new URL(`${realmAdminBase()}/users`)
+  url.searchParams.set('username', username)
+  url.searchParams.set('exact', 'true')
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!response.ok) return null
+  const users = (await response.json()) as Array<{ id?: string }>
+  return users[0]?.id ?? null
+}
+
+const setPassword = async (token: string, userId: string, password: string): Promise<void> => {
+  const response = await fetch(`${realmAdminBase()}/users/${userId}/reset-password`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      type: 'password',
+      value: password,
+      temporary: false,
+    }),
+  })
+  if (!response.ok) {
+    const text = await response.text()
+    throw new AppError(
+      502,
+      'REGISTER_FAILED',
+      text.trim() || 'Account was created but the password could not be set.',
+    )
+  }
+}
+
+const clearRequiredActions = async (token: string, userId: string): Promise<void> => {
+  const getResponse = await fetch(`${realmAdminBase()}/users/${userId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!getResponse.ok) return
+
+  const existing = (await getResponse.json()) as Record<string, unknown>
+  const response = await fetch(`${realmAdminBase()}/users/${userId}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      id: existing.id,
+      username: existing.username,
+      email: existing.email,
+      firstName: existing.firstName,
+      lastName: existing.lastName,
+      attributes: existing.attributes,
+      enabled: true,
+      emailVerified: true,
+      requiredActions: [],
+    }),
+  })
+  // Non-fatal: password grant may still work without this.
+  if (!response.ok) {
+    console.warn('Could not clear Keycloak requiredActions for', userId, response.status)
+  }
+}
+
 /**
- * Creates a Keycloak user and sets an initial password.
+ * Creates a Keycloak user, sets a permanent password, and clears blocking actions.
  */
 export const createKeycloakUser = async (input: CreateUserInput): Promise<void> => {
   const token = await adminAccessToken()
@@ -63,14 +135,9 @@ export const createKeycloakUser = async (input: CreateUserInput): Promise<void> 
     username: input.username,
     enabled: true,
     email: input.email,
-    emailVerified: Boolean(input.email),
-    credentials: [
-      {
-        type: 'password',
-        value: input.password,
-        temporary: false,
-      },
-    ],
+    // Always mark verified for API-created accounts so password grant is not blocked.
+    emailVerified: true,
+    requiredActions: [] as string[],
   }
 
   const response = await fetch(`${realmAdminBase()}/users`, {
@@ -82,23 +149,36 @@ export const createKeycloakUser = async (input: CreateUserInput): Promise<void> 
     body: JSON.stringify(body),
   })
 
-  if (response.status === 201 || response.status === 204) {
-    return
-  }
-
   if (response.status === 409) {
-    throw new AppError(409, 'USERNAME_TAKEN', 'That username is already taken.')
+    throw new AppError(409, 'USERNAME_TAKEN', 'That username is already taken. Try signing in.')
   }
 
-  const text = await response.text()
-  let message = 'Could not create the account.'
-  try {
-    const parsed = JSON.parse(text) as { errorMessage?: string; error?: string }
-    message = parsed.errorMessage ?? parsed.error ?? message
-  } catch {
-    if (text.trim()) message = text.trim()
+  if (response.status !== 201 && response.status !== 204) {
+    const text = await response.text()
+    let message = 'Could not create the account.'
+    try {
+      const parsed = JSON.parse(text) as { errorMessage?: string; error?: string }
+      message = parsed.errorMessage ?? parsed.error ?? message
+    } catch {
+      if (text.trim()) message = text.trim()
+    }
+    throw new AppError(502, 'REGISTER_FAILED', message)
   }
-  throw new AppError(502, 'REGISTER_FAILED', message)
+
+  const userId =
+    userIdFromLocation(response.headers.get('location')) ??
+    (await findUserIdByUsername(token, input.username))
+
+  if (!userId) {
+    throw new AppError(
+      502,
+      'REGISTER_FAILED',
+      'Account was created but could not be finalized. Try signing in.',
+    )
+  }
+
+  await setPassword(token, userId, input.password)
+  await clearRequiredActions(token, userId)
 }
 
 export const isRegistrationEnabled = hasKeycloakClientSecret

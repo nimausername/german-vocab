@@ -2,17 +2,28 @@ import Foundation
 
 enum APIClientError: LocalizedError {
     case invalidResponse
-    case server(message: String)
+    case server(code: String, message: String)
     case unauthorized
 
     var errorDescription: String? {
         switch self {
         case .invalidResponse:
             return "Invalid server response."
-        case .server(let message):
+        case .server(_, let message):
             return message
         case .unauthorized:
             return "Please sign in again."
+        }
+    }
+
+    var code: String? {
+        switch self {
+        case .server(let code, _):
+            return code
+        case .unauthorized:
+            return "UNAUTHORIZED"
+        case .invalidResponse:
+            return nil
         }
     }
 }
@@ -196,15 +207,26 @@ final class APIClient {
             throw APIClientError.invalidResponse
         }
 
+        if let errorBody = try? decoder.decode(APIErrorBody.self, from: data),
+           !(200 ... 299).contains(http.statusCode) {
+            let code = errorBody.error.code
+            // Only treat real session failures as unauthorized so login/register
+            // can show Keycloak messages instead of “Please sign in again.”
+            if http.statusCode == 401, code == "UNAUTHORIZED" || code == "REFRESH_FAILED" {
+                throw APIClientError.unauthorized
+            }
+            throw APIClientError.server(code: code, message: errorBody.error.message)
+        }
+
         if http.statusCode == 401 {
             throw APIClientError.unauthorized
         }
 
         if !(200 ... 299).contains(http.statusCode) {
-            if let errorBody = try? decoder.decode(APIErrorBody.self, from: data) {
-                throw APIClientError.server(message: errorBody.error.message)
-            }
-            throw APIClientError.server(message: "Request failed (\(http.statusCode))")
+            throw APIClientError.server(
+                code: "HTTP_\(http.statusCode)",
+                message: "Request failed (\(http.statusCode))"
+            )
         }
 
         let envelope = try decoder.decode(APIEnvelope<T>.self, from: data)

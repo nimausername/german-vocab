@@ -84,6 +84,19 @@ final class SessionStore: ObservableObject {
             persist(tokens)
             await flushPendingReviews()
         } catch {
+            // Account already exists from a partial earlier attempt — sign in instead.
+            if case APIClientError.server(let code, _) = error,
+               code == "USERNAME_TAKEN" || code == "ACCOUNT_CREATED" {
+                do {
+                    let tokens = try await client.login(username: username, password: password)
+                    persist(tokens)
+                    await flushPendingReviews()
+                    return
+                } catch {
+                    errorMessage = "Account exists. Check the password, then use Sign In."
+                    return
+                }
+            }
             errorMessage = error.localizedDescription
         }
     }
