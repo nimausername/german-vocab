@@ -70,7 +70,13 @@ final class SessionStore: ObservableObject {
         }
     }
 
-    func register(username: String, password: String, email: String?) async {
+    func register(
+        username: String,
+        password: String,
+        firstName: String,
+        lastName: String,
+        email: String?
+    ) async {
         isBusy = true
         errorMessage = nil
         defer { isBusy = false }
@@ -79,6 +85,8 @@ final class SessionStore: ObservableObject {
             let tokens = try await client.register(
                 username: username,
                 password: password,
+                firstName: firstName,
+                lastName: lastName,
                 email: email
             )
             persist(tokens)

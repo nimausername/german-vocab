@@ -221,6 +221,8 @@ struct ProgressExportPayload: Decodable {
 }
 
 struct UserStats: Decodable {
+    /// Full name from Keycloak when the account has one.
+    let displayName: String?
     let streak: Int
     let dailyNewLimit: Int
     let wordsLearned: Int
@@ -228,6 +230,33 @@ struct UserStats: Decodable {
     let reviewsDueNext7Days: Int
     let reviewsToday: Int
     let matureCards: Int
+
+    enum CodingKeys: String, CodingKey {
+        case displayName, streak, dailyNewLimit, wordsLearned, wordsTotal
+        case reviewsDueNext7Days, reviewsToday, matureCards
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
+        streak = try container.decode(Int.self, forKey: .streak)
+        dailyNewLimit = try container.decode(Int.self, forKey: .dailyNewLimit)
+        wordsLearned = try container.decode(Int.self, forKey: .wordsLearned)
+        wordsTotal = try container.decode(Int.self, forKey: .wordsTotal)
+        reviewsDueNext7Days = try container.decode(Int.self, forKey: .reviewsDueNext7Days)
+        reviewsToday = try container.decode(Int.self, forKey: .reviewsToday)
+        matureCards = try container.decode(Int.self, forKey: .matureCards)
+    }
+
+    /// First name for short greetings.
+    var firstName: String? {
+        guard let displayName else { return nil }
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return trimmed.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+            .first
+            .map(String.init)
+    }
 }
 
 struct APIErrorBody: Decodable {

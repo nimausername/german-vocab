@@ -18,7 +18,18 @@ type AccessTokenPayload = {
   sub: string
   email?: string
   name?: string
+  given_name?: string
+  family_name?: string
   preferred_username?: string
+}
+
+const displayNameFromToken = (payload: AccessTokenPayload): string | null => {
+  if (payload.name?.trim()) return payload.name.trim()
+  const parts = [payload.given_name, payload.family_name]
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part))
+  if (parts.length > 0) return parts.join(' ')
+  return payload.preferred_username ?? payload.email ?? null
 }
 
 /**
@@ -47,13 +58,10 @@ export const requireAuth = createMiddleware<{ Variables: AuthVariables }>(
       throw new AppError(401, 'UNAUTHORIZED', 'Token missing subject')
     }
 
-    const displayName =
-      payload.name ?? payload.preferred_username ?? payload.email ?? null
-
     const user = await ensureUserProfile({
       keycloakSub: payload.sub,
       email: payload.email ?? null,
-      displayName,
+      displayName: displayNameFromToken(payload),
     })
 
     c.set('user', user)

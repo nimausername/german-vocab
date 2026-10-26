@@ -45,6 +45,7 @@ export const getUserStats = async (user: UserProfile) => {
     )
 
   return {
+    displayName: user.displayName,
     streak: user.streak,
     dailyNewLimit: user.dailyNewLimit,
     wordsLearned: learned?.value ?? 0,

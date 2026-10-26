@@ -5,6 +5,8 @@ struct LoginView: View {
     @State private var mode: Mode = .signIn
     @State private var username = ""
     @State private var password = ""
+    @State private var firstName = ""
+    @State private var lastName = ""
     @State private var email = ""
     @FocusState private var focusedField: Field?
 
@@ -23,7 +25,7 @@ struct LoginView: View {
     }
 
     private enum Field {
-        case username, email, password
+        case firstName, lastName, username, email, password
     }
 
     var body: some View {
@@ -50,6 +52,28 @@ struct LoginView: View {
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .listRowBackground(Color.clear)
                     .accessibilityLabel("Account mode")
+                }
+
+                if mode == .createAccount {
+                    Section {
+                        TextField("First name", text: $firstName)
+                            .textContentType(.givenName)
+                            .textInputAutocapitalization(.words)
+                            .focused($focusedField, equals: .firstName)
+                            .submitLabel(.next)
+                            .onSubmit { focusedField = .lastName }
+
+                        TextField("Last name", text: $lastName)
+                            .textContentType(.familyName)
+                            .textInputAutocapitalization(.words)
+                            .focused($focusedField, equals: .lastName)
+                            .submitLabel(.next)
+                            .onSubmit { focusedField = .username }
+                    } header: {
+                        Text("Your name")
+                    } footer: {
+                        Text("Used to welcome you in the app.")
+                    }
                 }
 
                 Section {
@@ -84,7 +108,6 @@ struct LoginView: View {
                 } footer: {
                     Text(accountFooter)
                 }
-
             }
             .formStyle(.grouped)
             .navigationTitle("German Vocab")
@@ -124,12 +147,11 @@ struct LoginView: View {
                 }
             }
             .onAppear {
-                if username.isEmpty {
-                    focusedField = .username
-                }
+                focusedField = mode == .createAccount ? .firstName : .username
             }
-            .onChange(of: mode) { _, _ in
+            .onChange(of: mode) { _, newMode in
                 session.errorMessage = nil
+                focusedField = newMode == .createAccount ? .firstName : .username
             }
             .animation(AppMotion.reveal, value: session.errorMessage)
             .animation(AppMotion.step, value: mode)
@@ -149,7 +171,9 @@ struct LoginView: View {
         let name = username.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty, !password.isEmpty else { return false }
         if mode == .createAccount {
-            return name.count >= 3 && password.count >= 8
+            let given = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+            let family = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+            return name.count >= 3 && password.count >= 8 && !given.isEmpty && !family.isEmpty
         }
         return true
     }
@@ -165,6 +189,8 @@ struct LoginView: View {
             await session.register(
                 username: name,
                 password: password,
+                firstName: firstName.trimmingCharacters(in: .whitespacesAndNewlines),
+                lastName: lastName.trimmingCharacters(in: .whitespacesAndNewlines),
                 email: trimmedEmail.isEmpty ? nil : trimmedEmail
             )
             if !session.isAuthenticated,

@@ -47,10 +47,18 @@ final class APIClient {
         )
     }
 
-    func register(username: String, password: String, email: String?) async throws -> TokenPayload {
+    func register(
+        username: String,
+        password: String,
+        firstName: String,
+        lastName: String,
+        email: String?
+    ) async throws -> TokenPayload {
         var body: [String: Any] = [
             "username": username,
             "password": password,
+            "firstName": firstName,
+            "lastName": lastName,
         ]
         if let email, !email.isEmpty {
             body["email"] = email

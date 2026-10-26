@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var limitReady = false
     @State private var isSavingLimit = false
     @State private var limitError: String?
+    @State private var displayName: String?
 
     @State private var preferences = ReminderPreferences.load()
     @State private var notificationsDenied = false
@@ -163,11 +164,23 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    if let displayName, !displayName.isEmpty {
+                        LabeledContent {
+                            Text(displayName)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.trailing)
+                        } label: {
+                            Label("Signed in as", systemImage: "person")
+                        }
+                    }
+
                     Button(role: .destructive) {
                         session.logout()
                     } label: {
                         Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
                     }
+                } header: {
+                    Text("Account")
                 }
             }
             .formStyle(.grouped)
@@ -221,6 +234,7 @@ struct SettingsView: View {
             let stats = try await session.loadStats()
             savedLimit = stats.dailyNewLimit
             dailyNewLimit = stats.dailyNewLimit
+            displayName = stats.displayName
             limitError = nil
         } catch {
             limitError = error.localizedDescription

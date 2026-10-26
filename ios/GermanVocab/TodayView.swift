@@ -4,6 +4,7 @@ struct TodayView: View {
     @EnvironmentObject private var session: SessionStore
     @Namespace private var studyTransition
     @State private var plan: TodayPlan?
+    @State private var greetingName: String?
     @State private var errorMessage: String?
     @State private var isLoading = false
     @State private var showStudy = false
@@ -74,6 +75,15 @@ struct TodayView: View {
             if session.isShowingCachedPlan || !network.isOnline || session.pendingReviewCount > 0 {
                 Section {
                     offlineStatusRow
+                }
+            }
+
+            if let greetingName, !greetingName.isEmpty {
+                Section {
+                    Text(welcomeLine(greetingName))
+                        .font(.title3.weight(.semibold))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel(welcomeLine(greetingName))
                 }
             }
 
@@ -198,6 +208,10 @@ struct TodayView: View {
         .accessibilityLabel("\(goalTitle(goal)). \(goal.completed) of \(goal.total) cards. \(goalSubtitle(goal))")
     }
 
+    private func welcomeLine(_ firstName: String) -> String {
+        "Welcome, \(firstName)."
+    }
+
     private func goalTitle(_ goal: DailyGoal) -> String {
         if goal.total == 0 {
             return "Nothing due"
@@ -259,6 +273,7 @@ struct TodayView: View {
             let loadedPlan = try await planTask
             let stats = try? await statsTask
             plan = loadedPlan
+            greetingName = stats?.firstName
             PhoneWatchBridge.shared.updatePlanStamp(
                 WatchPlanStamp.make(planDate: loadedPlan.planDate, queue: loadedPlan.queue)
             )

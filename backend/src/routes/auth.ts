@@ -15,6 +15,13 @@ const loginSchema = z.object({
   password: z.string().min(1),
 })
 
+const namePart = z
+  .string()
+  .trim()
+  .min(1, 'Required')
+  .max(64)
+  .regex(/^[\p{L}\p{M}'' -]+$/u, 'Use letters, spaces, hyphens, or apostrophes')
+
 const registerSchema = z.object({
   username: z
     .string()
@@ -23,6 +30,8 @@ const registerSchema = z.object({
     .max(64)
     .regex(/^[a-zA-Z0-9._-]+$/, 'Use letters, numbers, dots, underscores, or hyphens'),
   password: z.string().min(8).max(128),
+  firstName: namePart,
+  lastName: namePart,
   email: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
     z.string().trim().email().optional(),
@@ -127,6 +136,8 @@ authRoutes.post('/register', async (c) => {
   await createKeycloakUser({
     username: body.username,
     password: body.password,
+    firstName: body.firstName,
+    lastName: body.lastName,
     email: typeof body.email === 'string' ? body.email : undefined,
   })
 
