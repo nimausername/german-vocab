@@ -60,15 +60,20 @@ final class APIClient {
         token: String,
         cardId: String,
         rating: Rating,
-        durationMs: Int
+        durationMs: Int,
+        clientRequestId: String? = nil
     ) async throws -> ReviewResult {
-        try await post(
+        var body: [String: Any] = [
+            "cardId": cardId,
+            "rating": rating.rawValue,
+            "durationMs": durationMs,
+        ]
+        if let clientRequestId {
+            body["clientRequestId"] = clientRequestId
+        }
+        return try await post(
             path: "/v1/reviews",
-            body: [
-                "cardId": cardId,
-                "rating": rating.rawValue,
-                "durationMs": durationMs,
-            ] as [String: Any],
+            body: body,
             token: token
         )
     }

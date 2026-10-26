@@ -4,6 +4,9 @@ import AVFoundation
 ///
 /// Compact and novelty voices are skipped. When no Premium German voice is
 /// installed, `premiumAvailable` stays false and nothing is spoken.
+///
+/// `AVAudioSession` activate and deactivate run on a background queue so they
+/// do not stall the main thread (Xcode's hang-risk warning).
 @MainActor
 final class GermanSpeaker: NSObject, ObservableObject {
     @Published private(set) var premiumAvailable: Bool
@@ -11,6 +14,12 @@ final class GermanSpeaker: NSObject, ObservableObject {
     private let synthesizer = AVSpeechSynthesizer()
     private let gate = SpeechFinishGate()
     private var generation = 0
+
+    /// Serial queue for session activate/deactivate. Those calls can block.
+    private static let sessionQueue = DispatchQueue(
+        label: "de.nimakhabbazi.germanvocab.audio-session",
+        qos: .userInitiated
+    )
 
     override init() {
         premiumAvailable = GermanSpeaker.premiumVoice() != nil
@@ -37,13 +46,19 @@ final class GermanSpeaker: NSObject, ObservableObject {
         premiumAvailable = true
         generation += 1
         let spokenGeneration = generation
-        prepareSession()
-        synthesizer.stopSpeaking(at: .immediate)
-        let utterance = AVSpeechUtterance(string: trimmed)
-        utterance.voice = voice
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
-        gate.remember(utterance, generation: spokenGeneration)
-        synthesizer.speak(utterance)
+
+        Self.sessionQueue.async { [weak self] in
+            AudioSessionControl.activate()
+            Task { @MainActor in
+                guard let self, self.generation == spokenGeneration else { return }
+                self.synthesizer.stopSpeaking(at: .immediate)
+                let utterance = AVSpeechUtterance(string: trimmed)
+                utterance.voice = voice
+                utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+                self.gate.remember(utterance, generation: spokenGeneration)
+                self.synthesizer.speak(utterance)
+            }
+        }
     }
 
     /// Stops playback and lets other audio return to full volume.
@@ -60,14 +75,26 @@ final class GermanSpeaker: NSObject, ObservableObject {
             ?? premium.first { $0.language.hasPrefix("de-") }
     }
 
-    private func prepareSession() {
+    private func deactivateSession() {
+        Self.sessionQueue.async {
+            AudioSessionControl.deactivate()
+        }
+    }
+}
+
+/// Session activate/deactivate stay off the main actor so the queue can call them.
+private enum AudioSessionControl {
+    static func activate() {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
         try? session.setActive(true)
     }
 
-    private func deactivateSession() {
-        try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+    static func deactivate() {
+        try? AVAudioSession.sharedInstance().setActive(
+            false,
+            options: [.notifyOthersOnDeactivation]
+        )
     }
 }
 

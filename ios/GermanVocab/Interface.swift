@@ -7,6 +7,41 @@ enum AppMotion {
     static let step = Animation.snappy(duration: 0.32, extraBounce: 0)
 }
 
+/// App icon artwork for marketing surfaces such as sign-in.
+struct BrandMark: View {
+    var size: CGFloat = 72
+
+    var body: some View {
+        Image("BrandMark")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+}
+
+/// Full-screen loading state: spinner and status only.
+struct LoadingView: View {
+    var message: String
+
+    var body: some View {
+        VStack(spacing: 14) {
+            ProgressView()
+                .controlSize(.large)
+
+            Text(message)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(message)
+        .accessibilityAddTraits(.updatesFrequently)
+    }
+}
+
 extension View {
     /// Primary action. Uses the system prominent glass style.
     func prominentGlassCapsule() -> some View {

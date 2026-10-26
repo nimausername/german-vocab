@@ -6,17 +6,25 @@ private enum StudyStage: Int {
     case writeWord = 1
     case writeBlank = 2
     case rate = 3
+}
 
-    func title(typing: Bool, revealed: Bool) -> String {
+/// What the learner produces on the second writing step.
+private enum ProductionDrill: Equatable {
+    case blank
+    case plural
+    case gender
+
+    func title(typing: Bool, listening: Bool) -> String {
         switch self {
-        case .situation:
-            return revealed ? "New word" : "Read the sentence"
-        case .writeWord:
-            return typing ? "Type the word" : "Write the word"
-        case .writeBlank:
+        case .blank:
+            if listening {
+                return typing ? "Listen, then type" : "Listen, then write"
+            }
             return typing ? "Type the missing word" : "Write the missing word"
-        case .rate:
-            return "Rate this card"
+        case .plural:
+            return typing ? "Type the plural" : "Write the plural"
+        case .gender:
+            return typing ? "Type the article" : "Write the article"
         }
     }
 }
@@ -26,6 +34,31 @@ private func openingStage(for item: StudyItem?) -> StudyStage {
     if item.isNew { return .situation }
     if item.recallWord { return .writeWord }
     return .writeBlank
+}
+
+private func usablePlural(for item: StudyItem) -> String? {
+    guard let plural = item.plural?.trimmingCharacters(in: .whitespacesAndNewlines),
+          !plural.isEmpty,
+          plural != "-" else {
+        return nil
+    }
+    return plural
+}
+
+/// Blank stays primary for young cards. Mature nouns rotate in plural and article.
+private func productionDrill(for item: StudyItem) -> ProductionDrill {
+    guard item.article != nil, !item.isNew, !item.recallWord else {
+        return .blank
+    }
+    let score = item.cardId.unicodeScalars.reduce(0) { $0 + Int($1.value) }
+    switch score % 5 {
+    case 0 where usablePlural(for: item) != nil:
+        return .plural
+    case 1:
+        return .gender
+    default:
+        return .blank
+    }
 }
 
 struct StudyView: View {
@@ -64,6 +97,8 @@ struct StudyView: View {
     @State private var startedAt = Date()
     @State private var errorMessage: String?
     @State private var isSubmitting = false
+    /// Escape hatch when listen-and-write hides the German sentence.
+    @State private var showListenText = false
 
     init(initialQueue: [StudyItem]) {
         _queue = State(initialValue: initialQueue)
@@ -72,12 +107,21 @@ struct StudyView: View {
         _meaningRevealed = State(initialValue: false)
     }
 
-    private var completed: Int {
-        max(0, initialCount - queue.count)
+    private var currentDrill: ProductionDrill {
+        guard let item = queue.first else { return .blank }
+        return productionDrill(for: item)
     }
 
-    private var progress: Double {
-        Double(completed) / Double(initialCount)
+    private var isListenBlank: Bool {
+        stage == .writeBlank
+            && currentDrill == .blank
+            && speaker.premiumAvailable
+            && !blankChecked
+            && !showListenText
+    }
+
+    private var completed: Int {
+        max(0, initialCount - queue.count)
     }
 
     private var introSpeechID: String {
@@ -95,42 +139,26 @@ struct StudyView: View {
         .navigationTitle("Study")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarVisibility(.hidden, for: .tabBar)
-        .toolbar {
-            if !queue.isEmpty {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Text("\(queue.count) left")
-                        .font(.subheadline.weight(.semibold))
-                        .monospacedDigit()
-                        .contentTransition(.numericText())
-                        .accessibilityLabel("\(queue.count) cards left")
-                }
-            }
-        }
         .animation(AppMotion.step, value: stage)
         .animation(AppMotion.step, value: queue.first?.cardId)
         .onAppear { speaker.refresh() }
         .onDisappear { speaker.stop() }
         .task(id: introSpeechID) {
-            guard stage == .situation, let current = queue.first else { return }
+            guard let current = queue.first else { return }
             let sentence = SentencePractice.resolve(current)
-            speaker.speak(meaningRevealed ? current.headwordWithArticle : sentence.german)
+            if stage == .situation {
+                speaker.speak(meaningRevealed ? current.headwordWithArticle : sentence.german)
+            } else if stage == .writeBlank, productionDrill(for: current) == .blank, speaker.premiumAvailable {
+                showListenText = false
+                speaker.speak(sentence.german)
+            }
         }
     }
 
     private func activeSession(_ current: StudyItem) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 8) {
-                    ProgressView(value: progress) {
-                        Text("Session")
-                    } currentValueLabel: {
-                        Text("\(completed) of \(initialCount)")
-                            .monospacedDigit()
-                    }
-                    .font(.subheadline)
-
-                    stageTrack(for: current)
-                }
+                sessionHeader(for: current)
 
                 Group {
                     switch stage {
@@ -157,6 +185,8 @@ struct StudyView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
         }
+        // Keep the study ScrollView still while the Pencil pad is on screen.
+        .scrollDisabled(!typingIsPrimary && (stage == .writeWord || stage == .writeBlank))
         .scrollDismissesKeyboard(.interactively)
         .sensoryFeedback(trigger: wordChecked) { old, new in
             guard new, !old else { return nil }
@@ -187,25 +217,64 @@ struct StudyView: View {
         return steps
     }
 
-    private func stageTrack(for item: StudyItem) -> some View {
+    /// One header: what to do now, how far through the session, one bar for both.
+    private func sessionHeader(for item: StudyItem) -> some View {
         let steps = stages(for: item)
-        let currentIndex = steps.firstIndex(of: stage) ?? 0
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                ForEach(Array(steps.enumerated()), id: \.offset) { index, _ in
+        let stepIndex = steps.firstIndex(of: stage) ?? 0
+        let stepCount = max(steps.count, 1)
+        // Finished cards plus the share of the current card already done.
+        let sessionProgress = (Double(completed) + Double(stepIndex) / Double(stepCount))
+            / Double(initialCount)
+        let stepTitle = headerTitle(for: item)
+        let cardLabel = "\(min(completed + 1, initialCount)) of \(initialCount)"
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(stepTitle)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .contentTransition(.opacity)
+                    .animation(AppMotion.step, value: stepTitle)
+
+                Spacer(minLength: 8)
+
+                Text(cardLabel)
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .contentTransition(.numericText())
+            }
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(index <= currentIndex ? AppTheme.accent : Color.primary.opacity(0.12))
-                        .frame(height: 5)
+                        .fill(Color.primary.opacity(0.10))
+                    Capsule()
+                        .fill(AppTheme.accent)
+                        .frame(width: max(0, geometry.size.width * sessionProgress))
                 }
             }
-            .animation(AppMotion.step, value: stage)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Step \(currentIndex + 1) of \(steps.count)")
-            .accessibilityValue(stage.title(typing: typingIsPrimary, revealed: meaningRevealed))
+            .frame(height: 6)
+            .animation(AppMotion.step, value: sessionProgress)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(stepTitle)
+        .accessibilityValue("Card \(cardLabel), step \(stepIndex + 1) of \(stepCount)")
+    }
 
-            Text(stage.title(typing: typingIsPrimary, revealed: meaningRevealed))
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
+    private func headerTitle(for item: StudyItem) -> String {
+        switch stage {
+        case .situation:
+            return meaningRevealed ? "New word" : "Read the sentence"
+        case .writeWord:
+            return typingIsPrimary ? "Type the word" : "Write the word"
+        case .writeBlank:
+            return productionDrill(for: item).title(
+                typing: typingIsPrimary,
+                listening: isListenBlank
+            )
+        case .rate:
+            return "Rate this card"
         }
     }
 
@@ -311,29 +380,91 @@ struct StudyView: View {
         .animation(AppMotion.reveal, value: wordChecked)
     }
 
-    // MARK: - Blank
+    // MARK: - Blank / plural / article
 
     private func blankStage(_ current: StudyItem) -> some View {
+        let drill = productionDrill(for: current)
         let sentence = SentencePractice.resolve(current)
         let prompt = ClozeSupport.blankPrompt(for: current)
+        let expected = expectedProduction(for: current, drill: drill, blank: prompt)
+        let listening = drill == .blank && speaker.premiumAvailable && !blankChecked && !showListenText
 
         return VStack(spacing: 16) {
-            Text(sentence.english)
-                .font(.title3)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
+            switch drill {
+            case .blank:
+                Text(sentence.english)
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
 
-            Text(prompt.blankedSentence)
-                .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .accessibilityLabel("German sentence with a missing word")
+                if listening {
+                    Image(systemName: "ear")
+                        .font(.system(size: 36))
+                        .foregroundStyle(AppTheme.accent)
+                        .accessibilityHidden(true)
 
-            Text(blankPrompt(for: prompt))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                    Text(typingIsPrimary
+                         ? "Listen, then type the missing German word"
+                         : "Listen, then write the missing German word")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    speakRow(text: sentence.german, prominent: true)
+
+                    Button("Show sentence") {
+                        withAnimation(AppMotion.step) { showListenText = true }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .accessibilityHint("Shows the German sentence with a blank")
+                } else {
+                    Text(prompt.blankedSentence)
+                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel("German sentence with a missing word")
+
+                    Text(blankPrompt(for: prompt))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    if speaker.premiumAvailable {
+                        speakRow(text: sentence.german, prominent: false)
+                    }
+                }
+
+            case .plural:
+                Text(current.headwordWithArticle)
+                    .font(.system(.largeTitle, design: .serif, weight: .medium))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+
+                Text(current.glossEn)
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                Text(typingIsPrimary ? "Type the plural form" : "Write the plural form")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+            case .gender:
+                Text(current.displayNoun)
+                    .font(.system(.largeTitle, design: .serif, weight: .medium))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+
+                Text(current.glossEn)
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                Text(typingIsPrimary ? "Type der, die, or das" : "Write der, die, or das")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
 
             if !typingIsPrimary {
                 WritingPad(
@@ -344,7 +475,7 @@ struct StudyView: View {
             }
 
             if showsTypingField && !blankChecked {
-                typeFallbackField(hint: prompt.inputHint) {
+                typeFallbackField(hint: productionHint(drill: drill, blank: prompt)) {
                     Task { await checkBlankWriting(for: current) }
                 }
             }
@@ -352,18 +483,47 @@ struct StudyView: View {
             if blankChecked {
                 resultBlock(
                     recognized: recognizedBlank,
-                    expected: prompt.expected,
+                    expected: expected,
                     result: blankResult
                 )
                 .transition(.opacity.combined(with: .move(edge: .top)))
-                if speaker.premiumAvailable {
+                if drill == .blank, speaker.premiumAvailable {
                     speakRow(text: sentence.german, prominent: false)
                 }
             }
 
-            voiceNote()
+            if drill == .blank {
+                voiceNote()
+            }
         }
         .animation(AppMotion.reveal, value: blankChecked)
+        .animation(AppMotion.reveal, value: showListenText)
+    }
+
+    private func expectedProduction(
+        for item: StudyItem,
+        drill: ProductionDrill,
+        blank: ClozePrompt
+    ) -> String {
+        switch drill {
+        case .blank:
+            return blank.expected
+        case .plural:
+            return usablePlural(for: item) ?? item.displayNoun
+        case .gender:
+            return item.article ?? ""
+        }
+    }
+
+    private func productionHint(drill: ProductionDrill, blank: ClozePrompt) -> String {
+        switch drill {
+        case .blank:
+            return blank.inputHint
+        case .plural:
+            return "Type the plural"
+        case .gender:
+            return "Type der, die, or das"
+        }
     }
 
     private func typeFallbackField(hint: String, onSubmit: @escaping () -> Void) -> some View {
@@ -410,6 +570,45 @@ struct StudyView: View {
         return prompt.requiresArticle
             ? "Write the missing word and its article"
             : "Write the missing word"
+    }
+
+    private func evaluateProduction(
+        answer: String,
+        item: StudyItem,
+        drill: ProductionDrill,
+        blank: ClozePrompt
+    ) -> ClozeResult {
+        switch drill {
+        case .blank:
+            return ClozeSupport.evaluateBlank(
+                answer: answer,
+                expected: blank.expected,
+                item: item
+            )
+        case .plural:
+            let expected = usablePlural(for: item) ?? item.displayNoun
+            let answerKey = ClozeSupport.normalize(answer)
+            let expectedKey = ClozeSupport.normalize(expected)
+            if answerKey == expectedKey || ClozeSupport.compactKey(answer) == ClozeSupport.compactKey(expected) {
+                return .full
+            }
+            // Accept bare plural noun when the stored form includes die.
+            let bareExpected = expectedKey.replacingOccurrences(
+                of: "^(die|der|das)\\s+",
+                with: "",
+                options: .regularExpression
+            )
+            if answerKey == bareExpected {
+                return .full
+            }
+            return .wrong
+        case .gender:
+            guard let article = item.article else { return .wrong }
+            if ClozeSupport.normalize(answer) == ClozeSupport.normalize(article) {
+                return .full
+            }
+            return .wrong
+        }
     }
 
     // MARK: - Rate
@@ -697,13 +896,21 @@ struct StudyView: View {
         isRecognizing = true
         defer { isRecognizing = false }
 
+        let drill = productionDrill(for: current)
         let prompt = ClozeSupport.blankPrompt(for: current)
-        let expected = [
-            prompt.expected,
+        let target = expectedProduction(for: current, drill: drill, blank: prompt)
+        var expected = [
+            target,
             current.headwordWithArticle,
             current.lemma,
             current.displayNoun,
         ]
+        if let plural = usablePlural(for: current) {
+            expected.append(plural)
+        }
+        if let article = current.article {
+            expected.append(article)
+        }
 
         do {
             let recognition = try await recognitionResult(
@@ -711,7 +918,7 @@ struct StudyView: View {
                 typed: typedAnswer,
                 expected: expected
             )
-            applyBlankResult(recognition, prompt: prompt, item: current)
+            applyBlankResult(recognition, drill: drill, prompt: prompt, item: current)
         } catch {
             errorMessage = error.localizedDescription
             withAnimation(AppMotion.step) { showTypeFallback = true }
@@ -753,20 +960,29 @@ struct StudyView: View {
 
     private func applyBlankResult(
         _ recognition: HandwritingRecognition,
+        drill: ProductionDrill,
         prompt: ClozePrompt,
         item: StudyItem
     ) {
         recognizedBlank = recognition.matchedExpected
             ? "\(recognition.rawText) → \(recognition.resolvedText)"
             : recognition.rawText
-        let result = ClozeSupport.evaluateBlank(
+        let result = evaluateProduction(
             answer: recognition.resolvedText,
-            expected: prompt.expected,
-            item: item
+            item: item,
+            drill: drill,
+            blank: prompt
         )
         blankResult = result
         blankChecked = true
-        speaker.speak(SentencePractice.resolve(item).german)
+        showListenText = true
+        if drill == .blank {
+            speaker.speak(SentencePractice.resolve(item).german)
+        } else if drill == .gender {
+            speaker.speak(item.headwordWithArticle)
+        } else if let plural = usablePlural(for: item) {
+            speaker.speak(plural)
+        }
     }
 
     private var sessionComplete: some View {
@@ -860,6 +1076,7 @@ struct StudyView: View {
         isRecognizing = false
         typedAnswer = ""
         showTypeFallback = false
+        showListenText = false
         startedAt = Date()
         errorMessage = nil
         speaker.stop()

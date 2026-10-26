@@ -3,7 +3,7 @@ import WatchConnectivity
 
 /// Loads today's queue on the watch for a reading pass.
 ///
-/// Learned and Not yet move through this queue only. They do not grade the card.
+/// Next moves through this queue only. It does not grade the card.
 ///
 /// The queue is kept on the watch for the rest of the local day. The phone is
 /// messaged only when this watch has no session and the phone has not already
@@ -12,7 +12,6 @@ import WatchConnectivity
 final class WatchStudyModel: NSObject, ObservableObject {
     @Published var isSignedIn = false
     @Published var isLoading = false
-    @Published var isSubmitting = false
     @Published var queue: [StudyItem] = []
     @Published var revealed = false
     @Published var errorMessage: String?
@@ -110,11 +109,8 @@ final class WatchStudyModel: NSObject, ObservableObject {
     }
 
     /// Moves to the next watch card. The phone schedule is left unchanged.
-    func mark(learned: Bool) async {
-        guard let item = current else { return }
-        _ = learned
-        let cardId = item.cardId
-        guard queue.first?.cardId == cardId else { return }
+    func advance() {
+        guard current != nil else { return }
         queue.removeFirst()
         revealed = false
         startedAt = Date()

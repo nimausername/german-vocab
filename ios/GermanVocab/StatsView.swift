@@ -15,8 +15,7 @@ struct StatsView: View {
         NavigationStack {
             Group {
                 if isLoading && stats == nil {
-                    ProgressView("Loading stats")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    LoadingView(message: "Loading stats")
                 } else if let stats {
                     statsList(stats)
                 } else if let errorMessage {
@@ -24,8 +23,7 @@ struct StatsView: View {
                         Task { await load() }
                     }
                 } else {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    LoadingView(message: "Preparing stats")
                 }
             }
             .navigationTitle("Stats")

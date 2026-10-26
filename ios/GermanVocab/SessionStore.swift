@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 @MainActor
 final class SessionStore: ObservableObject {
@@ -8,19 +9,32 @@ final class SessionStore: ObservableObject {
     @Published var isAuthenticated = false
     @Published var isBusy = false
     @Published var errorMessage: String?
+    /// True when the visible Today plan came from disk instead of the API.
+    @Published var isShowingCachedPlan = false
+    @Published var pendingReviewCount = 0
+    @Published var isSyncingOffline = false
 
     private let client = APIClient()
     private let defaults = UserDefaults.standard
+    private var flushTask: Task<Void, Never>?
 
     private enum Keys {
         static let access = "accessToken"
         static let refresh = "refreshToken"
     }
 
+    private var cacheUserId: String {
+        if let accessToken, let userId = AccessTokenIdentity.userId(from: accessToken) {
+            return userId
+        }
+        return "local"
+    }
+
     init() {
         accessToken = defaults.string(forKey: Keys.access)
         refreshToken = defaults.string(forKey: Keys.refresh)
         isAuthenticated = accessToken != nil
+        pendingReviewCount = OfflineStore.pendingReviews(userId: cacheUserId).count
         PhoneWatchBridge.shared.onActivated = { [weak self] in
             self?.syncWatch()
         }
@@ -28,6 +42,16 @@ final class SessionStore: ObservableObject {
             self?.applyRemoteTokens(access: access, refresh: refresh)
         }
         PhoneWatchBridge.shared.start(accessToken: accessToken, refreshToken: refreshToken)
+
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.willEnterForegroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                await self?.flushPendingReviews()
+            }
+        }
     }
 
     func login(username: String, password: String) async {
@@ -38,17 +62,22 @@ final class SessionStore: ObservableObject {
         do {
             let tokens = try await client.login(username: username, password: password)
             persist(tokens)
+            await flushPendingReviews()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
     func logout() {
+        let userId = cacheUserId
         accessToken = nil
         refreshToken = nil
         isAuthenticated = false
+        isShowingCachedPlan = false
+        pendingReviewCount = 0
         defaults.removeObject(forKey: Keys.access)
         defaults.removeObject(forKey: Keys.refresh)
+        OfflineStore.clearAll(userId: userId)
         syncWatch()
     }
 
@@ -73,20 +102,115 @@ final class SessionStore: ObservableObject {
     }
 
     func loadTodayPlan() async throws -> TodayPlan {
-        try await withAuthRetry { token in
-            try await client.todayPlan(token: token)
+        do {
+            let plan = try await withAuthRetry { token in
+                try await client.todayPlan(token: token)
+            }
+            OfflineStore.savePlan(plan, userId: cacheUserId)
+            isShowingCachedPlan = false
+            await flushPendingReviews()
+            return plan
+        } catch {
+            if isNetworkFailure(error),
+               let cached = OfflineStore.loadPlan(userId: cacheUserId, planDate: LocalDay.today) {
+                isShowingCachedPlan = true
+                return cached
+            }
+            throw error
         }
     }
 
     func submitReview(cardId: String, rating: Rating, durationMs: Int) async throws -> ReviewResult {
-        try await withAuthRetry { token in
-            try await client.submitReview(
-                token: token,
+        let requestId = UUID().uuidString.lowercased()
+        do {
+            let result = try await withAuthRetry { token in
+                try await client.submitReview(
+                    token: token,
+                    cardId: cardId,
+                    rating: rating,
+                    durationMs: durationMs,
+                    clientRequestId: requestId
+                )
+            }
+            OfflineStore.removeCardFromCachedPlan(
                 cardId: cardId,
-                rating: rating,
-                durationMs: durationMs
+                userId: cacheUserId,
+                planDate: LocalDay.today
+            )
+            return result
+        } catch {
+            guard isNetworkFailure(error) else { throw error }
+            let pending = PendingReview(
+                id: requestId,
+                cardId: cardId,
+                rating: rating.rawValue,
+                durationMs: durationMs,
+                createdAt: Date()
+            )
+            OfflineStore.enqueueReview(pending, userId: cacheUserId)
+            OfflineStore.removeCardFromCachedPlan(
+                cardId: cardId,
+                userId: cacheUserId,
+                planDate: LocalDay.today
+            )
+            pendingReviewCount = OfflineStore.pendingReviews(userId: cacheUserId).count
+            return ReviewResult(
+                cardId: cardId,
+                due: ISO8601DateFormatter().string(from: Date().addingTimeInterval(86_400)),
+                state: 0,
+                reps: 0,
+                streak: 0
             )
         }
+    }
+
+    /// Sends queued offline reviews when the network is available.
+    func flushPendingReviews() async {
+        guard isAuthenticated else { return }
+        let pending = OfflineStore.pendingReviews(userId: cacheUserId)
+        pendingReviewCount = pending.count
+        guard !pending.isEmpty else { return }
+        guard NetworkMonitor.shared.isOnline else { return }
+        guard flushTask == nil else { return }
+
+        isSyncingOffline = true
+        flushTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                self.flushTask = nil
+                self.isSyncingOffline = false
+                self.pendingReviewCount = OfflineStore.pendingReviews(userId: self.cacheUserId).count
+            }
+
+            for review in pending {
+                guard NetworkMonitor.shared.isOnline else { break }
+                do {
+                    _ = try await withAuthRetry { token in
+                        try await self.client.submitReview(
+                            token: token,
+                            cardId: review.cardId,
+                            rating: Rating(rawValue: review.rating) ?? .good,
+                            durationMs: review.durationMs,
+                            clientRequestId: review.id
+                        )
+                    }
+                    OfflineStore.removeReview(id: review.id, userId: self.cacheUserId)
+                } catch {
+                    if self.isNetworkFailure(error) {
+                        break
+                    }
+                    // Drop reviews the server permanently rejects so the queue cannot stick.
+                    if case APIClientError.server = error {
+                        OfflineStore.removeReview(id: review.id, userId: self.cacheUserId)
+                    } else if case APIClientError.unauthorized = error {
+                        break
+                    } else {
+                        OfflineStore.removeReview(id: review.id, userId: self.cacheUserId)
+                    }
+                }
+            }
+        }
+        await flushTask?.value
     }
 
     func updateDailyNewLimit(_ limit: Int) async throws -> Int {
@@ -129,12 +253,24 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    private func isNetworkFailure(_ error: Error) -> Bool {
+        if error is URLError {
+            return true
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain {
+            return true
+        }
+        return false
+    }
+
     private func persist(_ tokens: TokenPayload) {
         accessToken = tokens.accessToken
         refreshToken = tokens.refreshToken
         isAuthenticated = true
         defaults.set(tokens.accessToken, forKey: Keys.access)
         defaults.set(tokens.refreshToken, forKey: Keys.refresh)
+        pendingReviewCount = OfflineStore.pendingReviews(userId: cacheUserId).count
         syncWatch()
     }
 
@@ -161,5 +297,6 @@ final class SessionStore: ObservableObject {
         defaults.set(access, forKey: Keys.access)
         defaults.set(refresh, forKey: Keys.refresh)
         PhoneWatchBridge.shared.push(accessToken: access, refreshToken: refresh)
+        Task { await flushPendingReviews() }
     }
 }

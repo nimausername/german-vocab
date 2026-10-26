@@ -27,8 +27,7 @@ struct WordsView: View {
     private var sidebar: some View {
         Group {
             if isLoading && words.isEmpty {
-                ProgressView("Loading words")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                LoadingView(message: "Loading words")
             } else if let errorMessage, words.isEmpty {
                 LoadFailureView(title: "Couldn’t load words", message: errorMessage) {
                     Task { await reload() }

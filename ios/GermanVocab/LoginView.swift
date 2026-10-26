@@ -15,19 +15,23 @@ struct LoginView: View {
         NavigationStack {
             Form {
                 Section {
-                    HStack(spacing: 14) {
-                        Image(systemName: "character.book.closed.fill")
-                            .font(.system(size: 34))
-                            .foregroundStyle(AppTheme.accent)
-                            .symbolRenderingMode(.hierarchical)
-                            .symbolEffect(.bounce, value: didAppear)
-                            .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 14) {
+                        BrandMark(size: 64)
+                            .scaleEffect(didAppear ? 1 : 0.92)
+                            .opacity(didAppear ? 1 : 0)
+                            .animation(AppMotion.reveal, value: didAppear)
 
                         Text("Daily German, scheduled with care.")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Text("Sign in to pick up today’s words on this iPhone or iPad.")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    .padding(.vertical, 4)
                     .accessibilityElement(children: .combine)
                 }
                 .listRowBackground(Color.clear)

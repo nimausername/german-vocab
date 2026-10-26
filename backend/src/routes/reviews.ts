@@ -8,6 +8,7 @@ const reviewSchema = z.object({
   cardId: z.string().uuid(),
   rating: z.number().int().min(1).max(4),
   durationMs: z.number().int().nonnegative().optional(),
+  clientRequestId: z.string().uuid().optional(),
 })
 
 export const reviewRoutes = new Hono<{ Variables: AuthVariables }>()
@@ -21,6 +22,7 @@ reviewRoutes.post('/', async (c) => {
     cardId: body.cardId,
     rating: body.rating,
     durationMs: body.durationMs,
+    clientRequestId: body.clientRequestId,
   })
 
   return c.json({

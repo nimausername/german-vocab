@@ -6,10 +6,11 @@ The seed corpus is **4000 lemmas**, ordered so everyday sentences come first. Th
 
 ## Features
 
-- Native **SwiftUI** app for iPhone, iPad, and Apple Watch (no Expo). The iPhone and iPad app requires **iOS 26 or later** and uses Liquid Glass navigation, tabs, and controls. iPhone study is typed; iPad study uses Apple Pencil, with typing as a fallback. The watch shows the German word, then **Learned** or **Not yet**, without grading the card.
+- Native **SwiftUI** app for iPhone, iPad, and Apple Watch (no Expo). The iPhone and iPad app requires **iOS 26 or later** and uses Liquid Glass navigation, tabs, and controls. iPhone study is typed; iPad study uses Apple Pencil, with typing as a fallback. The watch shows the German word, then **Show meaning** and **Next**, without grading the card.
 - Reminders you can place through the day. Later ones mention the streak when today's session is still unfinished. Apple Watch shows them when the iPhone is locked.
 - In-app login via **Keycloak** (password grant; no browser redirect)
 - Daily plan: due reviews + limited new words
+- Offline study: today’s plan is cached on device; reviews queue and sync when you’re back online
 - **FSRS** scheduling. A miss is saved as Again. A correct card is Good or Easy.
 - Stats: streak, words learned, reviews
 - Docker / **Coolify**-ready backend
@@ -62,7 +63,7 @@ Create at least one user, then log in from the app.
 3. Set `AppConfig.apiBaseURL` in `ios/GermanVocab/Config.swift`.
 4. Choose your iPhone or iPad as the run destination and run (⌘R).
 
-The Apple Watch app is installed with the iPhone app. Sign in on the iPhone, then open German Vocab on the watch. A word shows in German; tap **Show meaning**, then **Learned** or **Not yet**. Those taps stay on the watch and do not grade the card.
+The Apple Watch app is installed with the iPhone app. Sign in on the iPhone, then open German Vocab on the watch. A word shows in German; tap **Show meaning**, then **Next**. That stays on the watch and does not grade the card.
 
 ## Deploy (Coolify)
 
@@ -88,7 +89,7 @@ Review ratings: `1=Again`, `2=Hard`, `3=Good`, `4=Easy`
 
 1. Words are ordered by `sortOrder` / CEFR.
 2. Each day: all **due** cards + up to **N** new words (default 8 for a new account, changeable in Settings from 1 to 50). An account that already chose a limit keeps it.
-3. A new word starts as a German sentence, played with the device’s Premium German voice when one is installed. The English stays hidden until you ask for it. You then write the word from the English, and fill that same word into the sentence. A young review skips the first reveal and still does both writing steps. Once a review interval is a week or longer, the session is only the blank. A miss is saved as **Again**. **Good** and **Easy** are offered only after a correct answer.
+3. A new word starts as a German sentence, played with the device’s Premium German voice when one is installed. The English stays hidden until you ask for it. You then write the word from the English, and fill that same word into the sentence. When a Premium voice is installed, blank practice is listen-first: the German line stays hidden until you ask to show it. Mature noun reviews also rotate in plural and article drills. A young review skips the first reveal and still does both writing steps. Once a review interval is a week or longer, the session is only that production step. A miss is saved as **Again**. **Good** and **Easy** are offered only after a correct answer.
 4. FSRS sets the next `due` time from that result.
 5. Progress is stored per Keycloak user in PostgreSQL.
 

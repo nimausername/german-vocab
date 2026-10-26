@@ -7,13 +7,13 @@ struct TodayView: View {
     @State private var errorMessage: String?
     @State private var isLoading = false
     @State private var showStudy = false
+    @ObservedObject private var network = NetworkMonitor.shared
 
     var body: some View {
         NavigationStack {
             Group {
                 if isLoading && plan == nil {
-                    ProgressView("Building today’s plan")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    LoadingView(message: "Building today’s plan")
                 } else if let plan {
                     planList(plan)
                 } else if let errorMessage {
@@ -24,8 +24,7 @@ struct TodayView: View {
                         Task { await load() }
                     }
                 } else {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    LoadingView(message: "Preparing Today")
                 }
             }
             .navigationTitle("Today")
@@ -42,8 +41,19 @@ struct TodayView: View {
                     .disabled(isLoading)
                 }
             }
-            .task { await load() }
+            .task {
+                await load()
+                await session.flushPendingReviews()
+            }
             .refreshable { await load() }
+            .onChange(of: network.isOnline) { _, online in
+                if online {
+                    Task {
+                        await session.flushPendingReviews()
+                        await load()
+                    }
+                }
+            }
             .onChange(of: showStudy) { _, isShowing in
                 if !isShowing {
                     Task { await load() }
@@ -61,6 +71,12 @@ struct TodayView: View {
     @ViewBuilder
     private func planList(_ plan: TodayPlan) -> some View {
         List {
+            if session.isShowingCachedPlan || !network.isOnline || session.pendingReviewCount > 0 {
+                Section {
+                    offlineStatusRow
+                }
+            }
+
             Section {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(formattedDate(plan.planDate))
@@ -138,6 +154,33 @@ struct TodayView: View {
                 }
             }
         }
+    }
+
+    private var offlineStatusRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if !network.isOnline || session.isShowingCachedPlan {
+                Label(
+                    session.isShowingCachedPlan
+                        ? "Offline — using today’s saved plan"
+                        : "You’re offline",
+                    systemImage: "wifi.slash"
+                )
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            }
+
+            if session.pendingReviewCount > 0 {
+                Label(
+                    session.isSyncingOffline
+                        ? "Syncing \(session.pendingReviewCount) saved reviews"
+                        : "\(session.pendingReviewCount) reviews waiting to sync",
+                    systemImage: session.isSyncingOffline ? "arrow.triangle.2.circlepath" : "tray.and.arrow.up"
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private func streakLabel(_ plan: TodayPlan) -> String {

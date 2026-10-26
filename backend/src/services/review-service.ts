@@ -14,12 +14,34 @@ type SubmitReviewInput = {
   cardId: string
   rating: number
   durationMs?: number
+  clientRequestId?: string
+}
+
+type ReviewResult = {
+  cardId: string
+  due: string
+  state: number
+  reps: number
+  streak: number
 }
 
 /**
  * Applies an FSRS rating to a card and updates streak / daily plan counters.
+ * The same `clientRequestId` returns the earlier result without grading again.
  */
-export const submitReview = async (input: SubmitReviewInput) => {
+export const submitReview = async (input: SubmitReviewInput): Promise<ReviewResult> => {
+  if (input.clientRequestId) {
+    const existing = await db.query.reviewLogs.findFirst({
+      where: and(
+        eq(reviewLogs.userId, input.user.id),
+        eq(reviewLogs.clientRequestId, input.clientRequestId),
+      ),
+    })
+    if (existing) {
+      return snapshotForCard(input.user, existing.cardId)
+    }
+  }
+
   const card = await db.query.cards.findFirst({
     where: and(eq(cards.id, input.cardId), eq(cards.userId, input.user.id)),
     with: undefined,
@@ -54,21 +76,30 @@ export const submitReview = async (input: SubmitReviewInput) => {
     .where(eq(cards.id, card.id))
     .returning()
 
-  await db.insert(reviewLogs).values({
-    cardId: card.id,
-    userId: input.user.id,
-    rating: log.rating,
-    state: log.state,
-    due: log.due,
-    stability: String(log.stability),
-    difficulty: String(log.difficulty),
-    elapsedDays: log.elapsed_days,
-    lastElapsedDays: log.last_elapsed_days,
-    scheduledDays: log.scheduled_days,
-    learningSteps: log.learning_steps,
-    review: log.review,
-    durationMs: input.durationMs ?? null,
-  })
+  try {
+    await db.insert(reviewLogs).values({
+      cardId: card.id,
+      userId: input.user.id,
+      rating: log.rating,
+      state: log.state,
+      due: log.due,
+      stability: String(log.stability),
+      difficulty: String(log.difficulty),
+      elapsedDays: log.elapsed_days,
+      lastElapsedDays: log.last_elapsed_days,
+      scheduledDays: log.scheduled_days,
+      learningSteps: log.learning_steps,
+      review: log.review,
+      durationMs: input.durationMs ?? null,
+      clientRequestId: input.clientRequestId ?? null,
+    })
+  } catch (error) {
+    // A concurrent offline retry won the unique clientRequestId race.
+    if (input.clientRequestId) {
+      return snapshotForCard(input.user, input.cardId)
+    }
+    throw error
+  }
 
   const planDate = formatDateInTimezone(now, input.user.timezone)
   const lastStudy = input.user.lastStudyDate
@@ -118,5 +149,21 @@ export const submitReview = async (input: SubmitReviewInput) => {
     state: updated?.state ?? next.state,
     reps: updated?.reps ?? next.reps,
     streak,
+  }
+}
+
+const snapshotForCard = async (user: UserProfile, cardId: string): Promise<ReviewResult> => {
+  const card = await db.query.cards.findFirst({
+    where: and(eq(cards.id, cardId), eq(cards.userId, user.id)),
+  })
+  if (!card) {
+    throw new AppError(404, 'CARD_NOT_FOUND', 'Card not found')
+  }
+  return {
+    cardId: card.id,
+    due: card.due.toISOString(),
+    state: card.state,
+    reps: card.reps,
+    streak: user.streak,
   }
 }

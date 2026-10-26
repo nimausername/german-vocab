@@ -13,6 +13,7 @@ struct GermanVocabApp: App {
             RootView()
                 .environmentObject(session)
                 .tint(AppTheme.accent)
+                .background(Color(.systemBackground).ignoresSafeArea())
         }
     }
 }

@@ -123,7 +123,7 @@ struct StudyItem: Codable, Identifiable {
     }
 }
 
-struct TodayPlan: Decodable {
+struct TodayPlan: Codable {
     let planDate: String
     let newLimit: Int
     let reviewDue: Int
@@ -135,6 +135,24 @@ struct TodayPlan: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case planDate, newLimit, reviewDue, newRemaining, queue, streak, studiedToday
+    }
+
+    init(
+        planDate: String,
+        newLimit: Int,
+        reviewDue: Int,
+        newRemaining: Int,
+        queue: [StudyItem],
+        streak: Int,
+        studiedToday: Bool
+    ) {
+        self.planDate = planDate
+        self.newLimit = newLimit
+        self.reviewDue = reviewDue
+        self.newRemaining = newRemaining
+        self.queue = queue
+        self.streak = streak
+        self.studiedToday = studiedToday
     }
 
     init(from decoder: Decoder) throws {
@@ -149,16 +167,16 @@ struct TodayPlan: Decodable {
     }
 }
 
-struct DailyLimitUpdate: Decodable {
-    let dailyNewLimit: Int
-}
-
-struct ReviewResult: Decodable {
+struct ReviewResult: Codable {
     let cardId: String
     let due: String
     let state: Int
     let reps: Int
     let streak: Int
+}
+
+struct DailyLimitUpdate: Decodable {
+    let dailyNewLimit: Int
 }
 
 struct UserStats: Decodable {

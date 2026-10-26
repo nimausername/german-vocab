@@ -61,11 +61,7 @@ struct WatchStudyView: View {
     private func card(_ item: StudyItem) -> some View {
         ScrollView {
             VStack(spacing: 10) {
-                Text(model.queue.count == 1 ? "1 word" : "\(model.queue.count) words")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-
-                Text("Reading practice only")
+                Text(model.queue.count == 1 ? "1 left" : "\(model.queue.count) left")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
 
@@ -75,21 +71,12 @@ struct WatchStudyView: View {
                     meaningCard(item)
                         .transition(.scale(scale: 0.92).combined(with: .opacity))
 
-                    Button("Learned") {
-                        Task { await model.mark(learned: true) }
+                    Button("Next") {
+                        model.advance()
                     }
                     .modifier(WatchActionStyle(prominent: true))
-                    .tint(.green)
-                    .disabled(model.isSubmitting)
-                    .accessibilityLabel("Mark \(item.headwordWithArticle) as learned")
-
-                    Button("Not yet") {
-                        Task { await model.mark(learned: false) }
-                    }
-                    .modifier(WatchActionStyle(prominent: false))
-                    .tint(.orange)
-                    .disabled(model.isSubmitting)
-                    .accessibilityLabel("Mark \(item.headwordWithArticle) as not yet learned")
+                    .accessibilityLabel("Next word")
+                    .accessibilityHint("Moves to the next word. Does not grade the card.")
                 } else {
                     Button {
                         withAnimation(.spring(duration: 0.35)) {

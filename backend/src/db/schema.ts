@@ -86,27 +86,33 @@ export const cards = pgTable(
 /**
  * Immutable review history for analytics.
  */
-export const reviewLogs = pgTable('review_logs', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  cardId: uuid('card_id')
-    .notNull()
-    .references(() => cards.id, { onDelete: 'cascade' }),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => userProfiles.id, { onDelete: 'cascade' }),
-  rating: integer('rating').notNull(),
-  state: integer('state').notNull(),
-  due: timestamp('due', { withTimezone: true }).notNull(),
-  stability: numeric('stability', { precision: 12, scale: 6 }).notNull(),
-  difficulty: numeric('difficulty', { precision: 12, scale: 6 }).notNull(),
-  elapsedDays: integer('elapsed_days').notNull(),
-  lastElapsedDays: integer('last_elapsed_days').notNull(),
-  scheduledDays: integer('scheduled_days').notNull(),
-  learningSteps: integer('learning_steps').notNull().default(0),
-  review: timestamp('review', { withTimezone: true }).notNull(),
-  durationMs: integer('duration_ms'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
+export const reviewLogs = pgTable(
+  'review_logs',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    cardId: uuid('card_id')
+      .notNull()
+      .references(() => cards.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => userProfiles.id, { onDelete: 'cascade' }),
+    rating: integer('rating').notNull(),
+    state: integer('state').notNull(),
+    due: timestamp('due', { withTimezone: true }).notNull(),
+    stability: numeric('stability', { precision: 12, scale: 6 }).notNull(),
+    difficulty: numeric('difficulty', { precision: 12, scale: 6 }).notNull(),
+    elapsedDays: integer('elapsed_days').notNull(),
+    lastElapsedDays: integer('last_elapsed_days').notNull(),
+    scheduledDays: integer('scheduled_days').notNull(),
+    learningSteps: integer('learning_steps').notNull().default(0),
+    review: timestamp('review', { withTimezone: true }).notNull(),
+    durationMs: integer('duration_ms'),
+    /** Client id so offline retries do not grade the same answer twice. */
+    clientRequestId: varchar('client_request_id', { length: 64 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [unique('review_logs_user_client_uidx').on(table.userId, table.clientRequestId)],
+)
 
 /**
  * Daily plan snapshot for the user.

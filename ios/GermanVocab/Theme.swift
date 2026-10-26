@@ -1,9 +1,16 @@
 import SwiftUI
 
-/// Brand tint and article colors. Everything else uses system styles so the
-/// interface follows Light and Dark Mode.
+/// Brand colors from the app icon: charcoal cap, German flag red and gold.
+/// Surfaces stay on system backgrounds so Light and Dark Mode feel native.
 enum AppTheme {
-    static let accent = Color(red: 0.10, green: 0.32, blue: 0.29)
+    /// Flag gold. Progress, tint, and primary highlights.
+    static let accent = Color(red: 0.89, green: 0.72, blue: 0.0)
+
+    /// Cap / top flag stripe. Launch dark and strong type accents.
+    static let ink = Color(red: 0.102, green: 0.102, blue: 0.141)
+
+    /// Middle flag stripe. Use sparingly for alerts and emphasis.
+    static let flagRed = Color(red: 0.89, green: 0.0, blue: 0.06)
 
     static let der = Color(red: 0.22, green: 0.40, blue: 0.62)
     static let die = Color(red: 0.62, green: 0.28, blue: 0.36)
