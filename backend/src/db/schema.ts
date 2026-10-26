@@ -34,6 +34,22 @@ export const words = pgTable(
 /** New accounts introduce this many words per day until the learner changes it. */
 export const DEFAULT_DAILY_NEW_LIMIT = 8
 
+/** Filters applied when building today's study queue. */
+export type StudyFilters = {
+  /** Empty means every CEFR band. */
+  cefrLevels: string[]
+  /** When true, only words with a gender (nouns) are studied. */
+  nounsOnly: boolean
+  /** Empty means every tag. Otherwise the word must include at least one. */
+  tags: string[]
+}
+
+export const DEFAULT_STUDY_FILTERS: StudyFilters = {
+  cefrLevels: [],
+  nounsOnly: false,
+  tags: [],
+}
+
 /**
  * App user mapped from Keycloak subject.
  */
@@ -45,6 +61,10 @@ export const userProfiles = pgTable(
     email: varchar('email', { length: 256 }),
     displayName: varchar('display_name', { length: 128 }),
     dailyNewLimit: integer('daily_new_limit').notNull().default(DEFAULT_DAILY_NEW_LIMIT),
+    studyFilters: jsonb('study_filters')
+      .$type<StudyFilters>()
+      .notNull()
+      .default(DEFAULT_STUDY_FILTERS),
     timezone: varchar('timezone', { length: 64 }).notNull().default('Europe/Berlin'),
     streak: integer('streak').notNull().default(0),
     lastStudyDate: varchar('last_study_date', { length: 10 }),

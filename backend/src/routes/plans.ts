@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { AuthVariables } from '../middleware/auth.js'
 import { requireAuth } from '../middleware/auth.js'
-import { getTodayPlan } from '../services/plan-service.js'
+import { getMistakeQueue, getTodayPlan } from '../services/plan-service.js'
 
 export const planRoutes = new Hono<{ Variables: AuthVariables }>()
 
@@ -13,6 +13,16 @@ planRoutes.get('/today', async (c) => {
 
   return c.json({
     data: plan,
+    meta: { requestId: c.get('requestId') },
+  })
+})
+
+planRoutes.get('/mistakes', async (c) => {
+  const user = c.get('user')
+  const mistakes = await getMistakeQueue(user)
+
+  return c.json({
+    data: mistakes,
     meta: { requestId: c.get('requestId') },
   })
 })

@@ -19,15 +19,14 @@ export const ensureUserProfile = async (
   })
 
   if (existing) {
-    if (
-      existing.email !== input.email ||
-      existing.displayName !== input.displayName
-    ) {
+    // Keep a Settings-edited display name; only fill from the token when empty.
+    const nextDisplayName = existing.displayName ?? input.displayName
+    if (existing.email !== input.email || existing.displayName !== nextDisplayName) {
       const [updated] = await db
         .update(userProfiles)
         .set({
           email: input.email,
-          displayName: input.displayName,
+          displayName: nextDisplayName,
           updatedAt: new Date(),
         })
         .where(eq(userProfiles.id, existing.id))

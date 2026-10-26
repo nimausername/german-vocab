@@ -2,6 +2,7 @@ import { and, count, eq, gte, sql } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { cards, reviewLogs, words, type UserProfile } from '../db/schema.js'
 import { State } from './fsrs-service.js'
+import { normalizeStudyFilters } from './study-filters.js'
 
 /**
  * Aggregates learning progress for the authenticated user.
@@ -48,6 +49,7 @@ export const getUserStats = async (user: UserProfile) => {
     displayName: user.displayName,
     streak: user.streak,
     dailyNewLimit: user.dailyNewLimit,
+    studyFilters: normalizeStudyFilters(user.studyFilters),
     wordsLearned: learned?.value ?? 0,
     wordsTotal: totalWords?.value ?? 0,
     reviewsDueNext7Days: dueSoon?.value ?? 0,

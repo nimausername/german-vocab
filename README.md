@@ -15,6 +15,9 @@ The seed corpus is **4000 lemmas**, ordered so everyday sentences come first. Th
 - Offline study: today’s plan is cached on device; reviews queue and sync when you’re back online
 - Study reminders on iPhone/iPad and Apple Watch; later reminders mention the streak when today’s goal is still open
 - Progress export: CSV backup or Anki-importable tab-separated notes from Settings
+- Mistake review: end-of-session pass plus Today’s “Again” cards from earlier today
+- Study filters: CEFR, nouns only, and tags in Settings
+- Home Screen widget: streak and cards left for today’s goal
 - **FSRS** scheduling. A miss is saved as Again. A correct card is Good or Easy.
 - Stats: streak, words learned, reviews
 - Docker / **Coolify**-ready backend
@@ -96,8 +99,10 @@ After deploy, point `Config.swift` at your HTTPS API URL and rebuild the app.
 | POST | `/v1/auth/register` | no |
 | POST | `/v1/auth/refresh` | no |
 | GET | `/v1/plans/today` | Bearer |
+| GET | `/v1/plans/mistakes` | Bearer |
 | POST | `/v1/reviews` | Bearer |
 | GET | `/v1/stats` | Bearer |
+| GET | `/v1/settings` | Bearer |
 | PATCH | `/v1/settings` | Bearer |
 | GET | `/v1/exports/progress?format=csv\|anki` | Bearer |
 

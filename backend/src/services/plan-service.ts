@@ -1,9 +1,21 @@
-import { and, asc, eq, isNull, lte } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, isNull, lte } from 'drizzle-orm'
 import { db } from '../db/client.js'
-import { cards, dailyPlans, words, type UserProfile } from '../db/schema.js'
+import {
+  DEFAULT_STUDY_FILTERS,
+  cards,
+  dailyPlans,
+  reviewLogs,
+  words,
+  type UserProfile,
+} from '../db/schema.js'
 import { formatDateInTimezone } from '../lib/dates.js'
 import { newFsrsCard } from './fsrs-service.js'
 import { cardRecallsWord, practiceSentence } from './practice-sentence.js'
+import {
+  filterNote,
+  normalizeStudyFilters,
+  wordMatchesStudyFilters,
+} from './study-filters.js'
 
 /** Above this many due reviews, new words pause for the day. */
 const REVIEW_HEAVY = 40
@@ -54,6 +66,8 @@ export type TodayPlan = {
   dailyGoal: DailyGoal
   /** Null when pacing did not change the new-word limit. */
   pacingNote: string | null
+  /** Null when no study filters are active. */
+  filterNote: string | null
 }
 
 type PlanWord = {
@@ -140,8 +154,9 @@ export const pacedNewLimit = (
 export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
   const now = new Date()
   const planDate = formatDateInTimezone(now, user.timezone)
+  const filters = normalizeStudyFilters(user.studyFilters ?? DEFAULT_STUDY_FILTERS)
 
-  const dueCards = await db
+  const dueCardRows = await db
     .select({
       card: cards,
       word: words,
@@ -150,7 +165,9 @@ export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
     .innerJoin(words, eq(cards.wordId, words.id))
     .where(and(eq(cards.userId, user.id), lte(cards.due, now)))
     .orderBy(asc(cards.due))
-    .limit(200)
+    .limit(400)
+
+  const dueCards = dueCardRows.filter(({ word }) => wordMatchesStudyFilters(word, filters))
 
   const [planRow] = await db
     .select()
@@ -171,13 +188,16 @@ export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
           .leftJoin(cards, and(eq(cards.wordId, words.id), eq(cards.userId, user.id)))
           .where(isNull(cards.id))
           .orderBy(asc(words.sortOrder))
-          .limit(newSlots)
+          .limit(Math.max(newSlots * 8, 40))
 
-  const newWords = newWordRows.map((row) => row.word)
+  const newWords = newWordRows
+    .map((row) => row.word)
+    .filter((word) => wordMatchesStudyFilters(word, filters))
+    .slice(0, newSlots)
 
-  const reviewItems: StudyItem[] = dueCards.map(({ card, word }) =>
-    toStudyItem(word, card, 'review'),
-  )
+  const reviewItems: StudyItem[] = dueCards
+    .slice(0, 200)
+    .map(({ card, word }) => toStudyItem(word, card, 'review'))
 
   const newItems: StudyItem[] = []
   for (const word of newWords) {
@@ -256,5 +276,48 @@ export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
       met: remaining === 0,
     },
     pacingNote: paced.note,
+    filterNote: filterNote(filters),
   }
+}
+
+/**
+ * Cards the learner marked Again earlier today, for a short mistake pass.
+ */
+export const getMistakeQueue = async (
+  user: UserProfile,
+): Promise<{ planDate: string; queue: StudyItem[] }> => {
+  const now = new Date()
+  const planDate = formatDateInTimezone(now, user.timezone)
+  const lookback = new Date(now.getTime() - 40 * 60 * 60 * 1000)
+
+  const rows = await db
+    .select({
+      card: cards,
+      word: words,
+      reviewedAt: reviewLogs.review,
+    })
+    .from(reviewLogs)
+    .innerJoin(cards, eq(reviewLogs.cardId, cards.id))
+    .innerJoin(words, eq(cards.wordId, words.id))
+    .where(
+      and(
+        eq(reviewLogs.userId, user.id),
+        eq(reviewLogs.rating, 1),
+        gte(reviewLogs.review, lookback),
+      ),
+    )
+    .orderBy(desc(reviewLogs.review))
+    .limit(100)
+
+  const seen = new Set<string>()
+  const queue: StudyItem[] = []
+  for (const row of rows) {
+    if (formatDateInTimezone(row.reviewedAt, user.timezone) !== planDate) continue
+    if (seen.has(row.card.id)) continue
+    seen.add(row.card.id)
+    queue.push(toStudyItem(row.word, row.card, 'review'))
+    if (queue.length >= 20) break
+  }
+
+  return { planDate, queue }
 }

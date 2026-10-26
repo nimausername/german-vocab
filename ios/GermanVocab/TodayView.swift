@@ -5,6 +5,9 @@ struct TodayView: View {
     @Namespace private var studyTransition
     @State private var plan: TodayPlan?
     @State private var greetingName: String?
+    @State private var mistakeCount = 0
+    @State private var showMistakes = false
+    @State private var mistakeQueue: [StudyItem] = []
     @State private var errorMessage: String?
     @State private var isLoading = false
     @State private var showStudy = false
@@ -66,6 +69,9 @@ struct TodayView: View {
                         .navigationTransition(.zoom(sourceID: "start-session", in: studyTransition))
                 }
             }
+            .navigationDestination(isPresented: $showMistakes) {
+                StudyView(initialQueue: mistakeQueue, isMistakePass: true)
+            }
         }
     }
 
@@ -94,6 +100,14 @@ struct TodayView: View {
             if let pacingNote = plan.pacingNote {
                 Section {
                     Label(pacingNote, systemImage: "gauge.with.dots.needle.67percent")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let filterNote = plan.filterNote {
+                Section {
+                    Label(filterNote, systemImage: "line.3.horizontal.decrease.circle")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -155,8 +169,8 @@ struct TodayView: View {
         .animation(AppMotion.reveal, value: plan.dailyGoal)
         .animation(AppMotion.reveal, value: plan.queue.count)
         .safeAreaBar(edge: .bottom) {
-            if !plan.queue.isEmpty {
-                BottomActionBar {
+            BottomActionBar {
+                if !plan.queue.isEmpty {
                     Button {
                         showStudy = true
                     } label: {
@@ -168,6 +182,21 @@ struct TodayView: View {
                     .matchedTransitionSource(id: "start-session", in: studyTransition)
                     .accessibilityLabel("Start session")
                     .accessibilityHint("\(plan.queue.count) cards left for today’s goal")
+                }
+
+                if mistakeCount > 0 {
+                    Button {
+                        Task { await openMistakes() }
+                    } label: {
+                        Label(
+                            "Review \(mistakeCount) mistake\(mistakeCount == 1 ? "" : "s")",
+                            systemImage: "arrow.counterclockwise"
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                    .glassCapsule()
+                    .actionColumn()
+                    .accessibilityLabel("Review mistakes from today")
                 }
             }
         }
@@ -274,6 +303,7 @@ struct TodayView: View {
             let stats = try? await statsTask
             plan = loadedPlan
             greetingName = stats?.firstName
+            SharedStudySnapshot.save(from: loadedPlan)
             PhoneWatchBridge.shared.updatePlanStamp(
                 WatchPlanStamp.make(planDate: loadedPlan.planDate, queue: loadedPlan.queue)
             )
@@ -285,6 +315,23 @@ struct TodayView: View {
             reminder.save()
             await StudyNotificationScheduler.reschedule()
             PhoneWatchBridge.shared.syncReminders()
+            if let mistakes = try? await session.loadMistakeQueue() {
+                mistakeCount = mistakes.queue.count
+            } else {
+                mistakeCount = 0
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func openMistakes() async {
+        do {
+            let mistakes = try await session.loadMistakeQueue()
+            mistakeQueue = mistakes.queue
+            mistakeCount = mistakes.queue.count
+            guard !mistakes.queue.isEmpty else { return }
+            showMistakes = true
         } catch {
             errorMessage = error.localizedDescription
         }

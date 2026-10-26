@@ -130,6 +130,57 @@ struct DailyGoal: Codable, Equatable {
     let met: Bool
 }
 
+struct StudyFilters: Codable, Equatable {
+    var cefrLevels: [String]
+    var nounsOnly: Bool
+    var tags: [String]
+
+    static let `default` = StudyFilters(cefrLevels: [], nounsOnly: false, tags: [])
+
+    enum CodingKeys: String, CodingKey {
+        case cefrLevels, nounsOnly, tags
+    }
+
+    init(cefrLevels: [String], nounsOnly: Bool, tags: [String]) {
+        self.cefrLevels = cefrLevels
+        self.nounsOnly = nounsOnly
+        self.tags = tags
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        cefrLevels = try container.decodeIfPresent([String].self, forKey: .cefrLevels) ?? []
+        nounsOnly = try container.decodeIfPresent(Bool.self, forKey: .nounsOnly) ?? false
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+    }
+}
+
+struct UserSettings: Decodable {
+    let dailyNewLimit: Int
+    let displayName: String?
+    let firstName: String?
+    let lastName: String?
+    let studyFilters: StudyFilters
+
+    enum CodingKeys: String, CodingKey {
+        case dailyNewLimit, displayName, firstName, lastName, studyFilters
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        dailyNewLimit = try container.decode(Int.self, forKey: .dailyNewLimit)
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
+        firstName = try container.decodeIfPresent(String.self, forKey: .firstName)
+        lastName = try container.decodeIfPresent(String.self, forKey: .lastName)
+        studyFilters = try container.decodeIfPresent(StudyFilters.self, forKey: .studyFilters) ?? .default
+    }
+}
+
+struct MistakeQueue: Decodable {
+    let planDate: String
+    let queue: [StudyItem]
+}
+
 struct TodayPlan: Codable {
     let planDate: String
     let newLimit: Int
@@ -143,10 +194,11 @@ struct TodayPlan: Codable {
     let studiedToday: Bool
     let dailyGoal: DailyGoal
     let pacingNote: String?
+    let filterNote: String?
 
     enum CodingKeys: String, CodingKey {
         case planDate, newLimit, settingsNewLimit, reviewDue, newRemaining
-        case queue, streak, studiedToday, dailyGoal, pacingNote
+        case queue, streak, studiedToday, dailyGoal, pacingNote, filterNote
     }
 
     init(
@@ -159,7 +211,8 @@ struct TodayPlan: Codable {
         streak: Int,
         studiedToday: Bool,
         dailyGoal: DailyGoal,
-        pacingNote: String?
+        pacingNote: String?,
+        filterNote: String?
     ) {
         self.planDate = planDate
         self.newLimit = newLimit
@@ -171,6 +224,7 @@ struct TodayPlan: Codable {
         self.studiedToday = studiedToday
         self.dailyGoal = dailyGoal
         self.pacingNote = pacingNote
+        self.filterNote = filterNote
     }
 
     init(from decoder: Decoder) throws {
@@ -194,6 +248,7 @@ struct TodayPlan: Codable {
             )
         }
         pacingNote = try container.decodeIfPresent(String.self, forKey: .pacingNote)
+        filterNote = try container.decodeIfPresent(String.self, forKey: .filterNote)
     }
 }
 
@@ -225,6 +280,7 @@ struct UserStats: Decodable {
     let displayName: String?
     let streak: Int
     let dailyNewLimit: Int
+    let studyFilters: StudyFilters
     let wordsLearned: Int
     let wordsTotal: Int
     let reviewsDueNext7Days: Int
@@ -232,7 +288,7 @@ struct UserStats: Decodable {
     let matureCards: Int
 
     enum CodingKeys: String, CodingKey {
-        case displayName, streak, dailyNewLimit, wordsLearned, wordsTotal
+        case displayName, streak, dailyNewLimit, studyFilters, wordsLearned, wordsTotal
         case reviewsDueNext7Days, reviewsToday, matureCards
     }
 
@@ -241,6 +297,7 @@ struct UserStats: Decodable {
         displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
         streak = try container.decode(Int.self, forKey: .streak)
         dailyNewLimit = try container.decode(Int.self, forKey: .dailyNewLimit)
+        studyFilters = try container.decodeIfPresent(StudyFilters.self, forKey: .studyFilters) ?? .default
         wordsLearned = try container.decode(Int.self, forKey: .wordsLearned)
         wordsTotal = try container.decode(Int.self, forKey: .wordsTotal)
         reviewsDueNext7Days = try container.decode(Int.self, forKey: .reviewsDueNext7Days)

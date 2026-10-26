@@ -28,6 +28,48 @@ enum ClozeResult: Equatable {
     }
 }
 
+enum ProductionDrillKind: String {
+    case blank
+    case plural
+    case gender
+}
+
+enum ClozeFeedback {
+    /// Short tip shown under the grade result.
+    static func tip(
+        result: ClozeResult?,
+        expected: String,
+        answer: String,
+        drill: ProductionDrillKind,
+        item: StudyItem
+    ) -> String? {
+        switch result {
+        case .full, .none:
+            return nil
+        case .caseMismatch(let correct):
+            return "Capital letters matter in German. Write it as “\(correct)”."
+        case .partial(let missingArticle):
+            return "Add the article “\(missingArticle)” before the noun."
+        case .wrong:
+            switch drill {
+            case .gender:
+                if let article = item.article {
+                    return "This noun takes “\(article)” (\(item.headwordWithArticle))."
+                }
+                return "Choose der, die, or das."
+            case .plural:
+                return "The plural is “\(expected)”."
+            case .blank:
+                let yours = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+                if yours.isEmpty {
+                    return "Expected “\(expected)”."
+                }
+                return "You wrote “\(yours)”. Expected “\(expected)”."
+            }
+        }
+    }
+}
+
 enum ClozeSupport {
     private static let fallbackDistractors = [
         "ich", "du", "er", "sie", "wir", "ihr",

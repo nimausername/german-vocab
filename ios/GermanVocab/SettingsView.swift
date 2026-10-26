@@ -9,7 +9,19 @@ struct SettingsView: View {
     @State private var limitReady = false
     @State private var isSavingLimit = false
     @State private var limitError: String?
-    @State private var displayName: String?
+
+    @State private var firstName = ""
+    @State private var lastName = ""
+    @State private var savedFirstName = ""
+    @State private var savedLastName = ""
+    @State private var isSavingProfile = false
+    @State private var profileError: String?
+    @State private var profileStatus: String?
+
+    @State private var studyFilters = StudyFilters.default
+    @State private var savedFilters = StudyFilters.default
+    @State private var isSavingFilters = false
+    @State private var filterError: String?
 
     @State private var preferences = ReminderPreferences.load()
     @State private var notificationsDenied = false
@@ -17,6 +29,9 @@ struct SettingsView: View {
     @State private var isExporting = false
     @State private var exportError: String?
     @State private var exportShare: ExportShareItem?
+
+    private let cefrOptions = ["A1", "A2", "B1", "B2", "C1"]
+    private let tagOptions = ["noun", "verb", "adjective", "adverb", "function"]
 
     var body: some View {
         NavigationStack {
@@ -53,6 +68,37 @@ struct SettingsView: View {
                     Text("Daily Plan")
                 } footer: {
                     Text("Due reviews are always included. This limit only adds new words. It applies the next time Today loads.")
+                }
+
+                Section {
+                    Toggle("Nouns only", isOn: $studyFilters.nounsOnly)
+
+                    ForEach(cefrOptions, id: \.self) { level in
+                        Toggle(level, isOn: cefrBinding(level))
+                    }
+
+                    ForEach(tagOptions, id: \.self) { tag in
+                        Toggle(tag.capitalized, isOn: tagBinding(tag))
+                    }
+
+                    if isSavingFilters {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("Saving filters")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if let filterError {
+                        Text(filterError)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                } header: {
+                    Text("Study Filters")
+                } footer: {
+                    Text("Empty CEFR and tag lists mean all levels and tags. Filters apply the next time Today loads.")
                 }
 
                 Section {
@@ -164,33 +210,59 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    if let displayName, !displayName.isEmpty {
-                        LabeledContent {
-                            Text(displayName)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.trailing)
-                        } label: {
-                            Label("Signed in as", systemImage: "person")
+                    TextField("First name", text: $firstName)
+                        .textContentType(.givenName)
+                        .textInputAutocapitalization(.words)
+                    TextField("Last name", text: $lastName)
+                        .textContentType(.familyName)
+                        .textInputAutocapitalization(.words)
+
+                    Button {
+                        Task { await saveProfile() }
+                    } label: {
+                        if isSavingProfile {
+                            ProgressView()
+                        } else {
+                            Text("Save name")
                         }
+                    }
+                    .disabled(!canSaveProfile || isSavingProfile)
+
+                    if let profileStatus {
+                        Text(profileStatus)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let profileError {
+                        Text(profileError)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
                     }
 
                     Button(role: .destructive) {
+                        SharedStudySnapshot.clear()
                         session.logout()
                     } label: {
                         Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
                     }
                 } header: {
                     Text("Account")
+                } footer: {
+                    Text("Your name appears in Today’s welcome line.")
                 }
             }
             .formStyle(.grouped)
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
-            .task { await loadLimit() }
+            .task { await loadSettings() }
             .task { await refreshNotificationStatus() }
             .onChange(of: dailyNewLimit) { _, newValue in
                 guard limitReady, newValue != savedLimit else { return }
                 Task { await saveLimit(newValue) }
+            }
+            .onChange(of: studyFilters) { _, newValue in
+                guard limitReady, newValue != savedFilters else { return }
+                Task { await saveFilters(newValue) }
             }
             .onChange(of: preferences) { _, newValue in
                 let next = newValue.clamped()
@@ -211,6 +283,43 @@ struct SettingsView: View {
         }
     }
 
+    private var canSaveProfile: Bool {
+        let first = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let last = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !first.isEmpty, !last.isEmpty else { return false }
+        return first != savedFirstName || last != savedLastName
+    }
+
+    private func cefrBinding(_ level: String) -> Binding<Bool> {
+        Binding(
+            get: { studyFilters.cefrLevels.contains(level) },
+            set: { enabled in
+                var next = studyFilters.cefrLevels
+                if enabled {
+                    if !next.contains(level) { next.append(level) }
+                } else {
+                    next.removeAll { $0 == level }
+                }
+                studyFilters.cefrLevels = next.sorted()
+            }
+        )
+    }
+
+    private func tagBinding(_ tag: String) -> Binding<Bool> {
+        Binding(
+            get: { studyFilters.tags.contains(tag) },
+            set: { enabled in
+                var next = studyFilters.tags
+                if enabled {
+                    if !next.contains(tag) { next.append(tag) }
+                } else {
+                    next.removeAll { $0 == tag }
+                }
+                studyFilters.tags = next.sorted()
+            }
+        )
+    }
+
     private var startDate: Binding<Date> {
         Binding(
             get: { date(fromMinutes: preferences.startMinutes) },
@@ -229,13 +338,20 @@ struct SettingsView: View {
         )
     }
 
-    private func loadLimit() async {
+    private func loadSettings() async {
         do {
-            let stats = try await session.loadStats()
-            savedLimit = stats.dailyNewLimit
-            dailyNewLimit = stats.dailyNewLimit
-            displayName = stats.displayName
+            let settings = try await session.loadSettings()
+            savedLimit = settings.dailyNewLimit
+            dailyNewLimit = settings.dailyNewLimit
+            firstName = settings.firstName ?? ""
+            lastName = settings.lastName ?? ""
+            savedFirstName = firstName
+            savedLastName = lastName
+            studyFilters = settings.studyFilters
+            savedFilters = settings.studyFilters
             limitError = nil
+            profileError = nil
+            filterError = nil
         } catch {
             limitError = error.localizedDescription
         }
@@ -252,6 +368,39 @@ struct SettingsView: View {
         } catch {
             dailyNewLimit = savedLimit
             limitError = error.localizedDescription
+        }
+    }
+
+    private func saveFilters(_ filters: StudyFilters) async {
+        isSavingFilters = true
+        defer { isSavingFilters = false }
+        do {
+            let settings = try await session.updateStudyFilters(filters)
+            savedFilters = settings.studyFilters
+            studyFilters = settings.studyFilters
+            filterError = nil
+        } catch {
+            studyFilters = savedFilters
+            filterError = error.localizedDescription
+        }
+    }
+
+    private func saveProfile() async {
+        isSavingProfile = true
+        defer { isSavingProfile = false }
+        profileError = nil
+        profileStatus = nil
+        let first = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let last = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            let settings = try await session.updateProfileName(firstName: first, lastName: last)
+            firstName = settings.firstName ?? first
+            lastName = settings.lastName ?? last
+            savedFirstName = firstName
+            savedLastName = lastName
+            profileStatus = "Name saved."
+        } catch {
+            profileError = error.localizedDescription
         }
     }
 

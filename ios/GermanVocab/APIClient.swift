@@ -82,12 +82,42 @@ final class APIClient {
         try await get(path: "/v1/plans/today", token: token)
     }
 
-    func updateDailyNewLimit(token: String, limit: Int) async throws -> DailyLimitUpdate {
+    func updateDailyNewLimit(token: String, limit: Int) async throws -> UserSettings {
         try await patch(
             path: "/v1/settings",
             body: ["dailyNewLimit": limit],
             token: token
         )
+    }
+
+    func settings(token: String) async throws -> UserSettings {
+        try await get(path: "/v1/settings", token: token)
+    }
+
+    func updateProfileName(token: String, firstName: String, lastName: String) async throws -> UserSettings {
+        try await patch(
+            path: "/v1/settings",
+            body: ["firstName": firstName, "lastName": lastName],
+            token: token
+        )
+    }
+
+    func updateStudyFilters(token: String, filters: StudyFilters) async throws -> UserSettings {
+        try await patch(
+            path: "/v1/settings",
+            body: [
+                "studyFilters": [
+                    "cefrLevels": filters.cefrLevels,
+                    "nounsOnly": filters.nounsOnly,
+                    "tags": filters.tags,
+                ] as [String: Any],
+            ],
+            token: token
+        )
+    }
+
+    func mistakeQueue(token: String) async throws -> MistakeQueue {
+        try await get(path: "/v1/plans/mistakes", token: token)
     }
 
     func submitReview(

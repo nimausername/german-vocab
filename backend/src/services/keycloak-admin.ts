@@ -254,6 +254,37 @@ export const createKeycloakUser = async (input: CreateUserInput): Promise<void> 
   })
 }
 
+/**
+ * Updates first and last name for an existing Keycloak user (id = JWT sub).
+ */
+export const updateKeycloakNames = async (
+  keycloakSub: string,
+  names: { firstName: string; lastName: string },
+): Promise<void> => {
+  if (!hasKeycloakClientSecret()) {
+    throw new AppError(
+      503,
+      'PROFILE_UPDATE_DISABLED',
+      'Name updates are not configured on this server.',
+    )
+  }
+
+  const token = await adminAccessToken()
+  const existing = await getUser(token, keycloakSub)
+  if (!existing?.id) {
+    throw new AppError(404, 'USER_NOT_FOUND', 'Keycloak user not found.')
+  }
+
+  await putUser(token, {
+    id: existing.id,
+    username: existing.username,
+    email: existing.email,
+    firstName: names.firstName,
+    lastName: names.lastName,
+    attributes: existing.attributes,
+  })
+}
+
 export const isRegistrationEnabled = hasKeycloakClientSecret
 
 export const isAccountNotFullySetUp = (message: string): boolean =>

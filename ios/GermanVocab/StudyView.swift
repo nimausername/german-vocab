@@ -27,6 +27,14 @@ private enum ProductionDrill: Equatable {
             return typing ? "Type the article" : "Write the article"
         }
     }
+
+    var tipKind: ProductionDrillKind {
+        switch self {
+        case .blank: return .blank
+        case .plural: return .plural
+        case .gender: return .gender
+        }
+    }
 }
 
 private func openingStage(for item: StudyItem?) -> StudyStage {
@@ -99,12 +107,16 @@ struct StudyView: View {
     @State private var isSubmitting = false
     /// Escape hatch when listen-and-write hides the German sentence.
     @State private var showListenText = false
+    /// Cards missed this session, offered again at the end.
+    @State private var mistakeQueue: [StudyItem] = []
+    @State private var isMistakePass = false
 
-    init(initialQueue: [StudyItem]) {
+    init(initialQueue: [StudyItem], isMistakePass: Bool = false) {
         _queue = State(initialValue: initialQueue)
         _initialCount = State(initialValue: max(initialQueue.count, 1))
         _stage = State(initialValue: openingStage(for: initialQueue.first))
         _meaningRevealed = State(initialValue: false)
+        _isMistakePass = State(initialValue: isMistakePass)
     }
 
     private var currentDrill: ProductionDrill {
@@ -368,7 +380,9 @@ struct StudyView: View {
                 resultBlock(
                     recognized: recognizedWord,
                     expected: current.headwordWithArticle,
-                    result: wordResult
+                    result: wordResult,
+                    drill: .blank,
+                    item: current
                 )
                 .transition(.opacity.combined(with: .move(edge: .top)))
                 headword(current)
@@ -484,7 +498,9 @@ struct StudyView: View {
                 resultBlock(
                     recognized: recognizedBlank,
                     expected: expected,
-                    result: blankResult
+                    result: blankResult,
+                    drill: drill.tipKind,
+                    item: current
                 )
                 .transition(.opacity.combined(with: .move(edge: .top)))
                 if drill == .blank, speaker.premiumAvailable {
@@ -691,8 +707,21 @@ struct StudyView: View {
     }
 
     @ViewBuilder
-    private func resultBlock(recognized: String, expected: String, result: ClozeResult?) -> some View {
+    private func resultBlock(
+        recognized: String,
+        expected: String,
+        result: ClozeResult?,
+        drill: ProductionDrillKind,
+        item: StudyItem
+    ) -> some View {
         let tint = resultTint(result)
+        let tip = ClozeFeedback.tip(
+            result: result,
+            expected: expected,
+            answer: recognized,
+            drill: drill,
+            item: item
+        )
         VStack(spacing: 8) {
             Text("Read as: \(recognized.isEmpty ? "—" : recognized)")
                 .font(.subheadline)
@@ -707,6 +736,13 @@ struct StudyView: View {
                 Label("Almost — include “\(missingArticle)”", systemImage: "exclamationmark.circle.fill")
             case .wrong, .none:
                 Label("Expected: \(expected)", systemImage: "xmark.circle.fill")
+            }
+
+            if let tip {
+                Text(tip)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary.opacity(0.85))
+                    .multilineTextAlignment(.center)
             }
         }
         .font(.headline)
@@ -999,24 +1035,60 @@ struct StudyView: View {
                     .font(.system(size: 52))
                     .foregroundStyle(.green)
                     .symbolEffect(.bounce, value: initialCount)
-                Text("Session complete")
+                Text(isMistakePass ? "Mistakes reviewed" : "Session complete")
                     .font(.title2.bold())
             }
         } description: {
-            Text("Great work. Come back tomorrow for the next set.")
+            if !isMistakePass, !mistakeQueue.isEmpty {
+                Text("\(mistakeQueue.count) card\(mistakeQueue.count == 1 ? "" : "s") to review from this session.")
+            } else {
+                Text("Great work. Come back tomorrow for the next set.")
+            }
         }
         .safeAreaBar(edge: .bottom) {
             BottomActionBar {
+                if !isMistakePass, !mistakeQueue.isEmpty {
+                    Button {
+                        startMistakePass()
+                    } label: {
+                        Label(
+                            "Review \(mistakeQueue.count) mistake\(mistakeQueue.count == 1 ? "" : "s")",
+                            systemImage: "arrow.counterclockwise"
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                    .prominentGlassCapsule()
+                    .tint(AppTheme.accent)
+                    .actionColumn()
+                }
+
                 Button {
                     dismiss()
                 } label: {
                     Text("Done")
                         .frame(maxWidth: .infinity)
                 }
-                .prominentGlassCapsule()
+                .glassCapsule()
                 .actionColumn()
             }
         }
+    }
+
+    private func startMistakePass() {
+        let next = mistakeQueue
+        guard !next.isEmpty else { return }
+        queue = next
+        mistakeQueue = []
+        initialCount = max(next.count, 1)
+        isMistakePass = true
+        resetCardState()
+        startedAt = Date()
+    }
+
+    private func rememberMistake(_ item: StudyItem) {
+        guard !isMistakePass else { return }
+        if mistakeQueue.contains(where: { $0.cardId == item.cardId }) { return }
+        mistakeQueue.append(item)
     }
 
     private func ratingRow(for item: StudyItem) -> some View {
@@ -1054,6 +1126,9 @@ struct StudyView: View {
         let durationMs = Int(Date().timeIntervalSince(startedAt) * 1000)
 
         do {
+            if rating == .again {
+                rememberMistake(item)
+            }
             _ = try await session.submitReview(
                 cardId: item.cardId,
                 rating: rating,
@@ -1078,6 +1153,7 @@ struct StudyView: View {
             context.studiedToday = true
         }
         context.save()
+        SharedStudySnapshot.updateRemaining(queueCount: queue.count, streak: context.streak)
         await StudyNotificationScheduler.reschedule()
         PhoneWatchBridge.shared.syncReminders()
     }

@@ -299,6 +299,30 @@ final class SessionStore: ObservableObject {
         return updated.dailyNewLimit
     }
 
+    func loadSettings() async throws -> UserSettings {
+        try await withAuthRetry { token in
+            try await client.settings(token: token)
+        }
+    }
+
+    func updateProfileName(firstName: String, lastName: String) async throws -> UserSettings {
+        try await withAuthRetry { token in
+            try await client.updateProfileName(token: token, firstName: firstName, lastName: lastName)
+        }
+    }
+
+    func updateStudyFilters(_ filters: StudyFilters) async throws -> UserSettings {
+        try await withAuthRetry { token in
+            try await client.updateStudyFilters(token: token, filters: filters)
+        }
+    }
+
+    func loadMistakeQueue() async throws -> MistakeQueue {
+        try await withAuthRetry { token in
+            try await client.mistakeQueue(token: token)
+        }
+    }
+
     func loadStats() async throws -> UserStats {
         try await withAuthRetry { token in
             try await client.stats(token: token)

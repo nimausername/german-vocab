@@ -101,7 +101,8 @@ enum OfflineStore {
                 total: completed + remaining.count,
                 met: remaining.isEmpty
             ),
-            pacingNote: plan.pacingNote
+            pacingNote: plan.pacingNote,
+            filterNote: plan.filterNote
         )
         savePlan(plan, userId: userId)
     }
