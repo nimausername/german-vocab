@@ -127,6 +127,25 @@ struct WatchStudyView: View {
         .accessibilityLabel(item.headwordWithArticle)
     }
 
+    private func exampleSentence(_ item: StudyItem) -> String {
+        let practice = item.practiceDe.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !practice.isEmpty, !Self.isShallowTemplate(practice) {
+            return practice
+        }
+        return item.exampleDe
+    }
+
+    private static func isShallowTemplate(_ sentence: String) -> Bool {
+        let value = sentence.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if value.hasPrefix("das ist der ") || value.hasPrefix("das ist die ") || value.hasPrefix("das ist das ") {
+            return true
+        }
+        if value.hasPrefix("ich kann ") || value.contains("ist wichtig") || value.contains("für viele menschen") {
+            return true
+        }
+        return false
+    }
+
     private func meaningCard(_ item: StudyItem) -> some View {
         let tint = AppTheme.genderColor(for: item.article)
         return VStack(alignment: .leading, spacing: 6) {
@@ -143,8 +162,8 @@ struct WatchStudyView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .minimumScaleFactor(0.75)
 
-            if !item.exampleDe.isEmpty {
-                Text(item.exampleDe)
+            if !exampleSentence(item).isEmpty {
+                Text(exampleSentence(item))
                     .font(.caption)
                     .italic()
                     .foregroundStyle(.secondary)
@@ -163,7 +182,7 @@ struct WatchStudyView: View {
                 .strokeBorder(tint.opacity(0.7), lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Meaning, \(item.glossEn). \(item.exampleDe)")
+        .accessibilityLabel("Meaning, \(item.glossEn). \(exampleSentence(item))")
     }
 }
 

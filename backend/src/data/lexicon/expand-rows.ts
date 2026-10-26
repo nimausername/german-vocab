@@ -3,27 +3,22 @@ import { parseLexicon } from '../parse-lexicon.js'
 
 const article = (gender: string, lemma: string) => `${gender} ${lemma}`
 
-const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1)
-
 /**
- * Builds a nominative sentence that shows the noun's gender.
- * Cards are reviewed one at a time, so the repeated frames teach a usable pattern.
+ * A short everyday sentence for nouns that have no hand-written example.
+ * The three frames are situations people actually say.
  */
 const nounSentence = (gender: string, lemma: string, gloss: string, index: number) => {
   const nom = article(gender, lemma)
-  const cap = capitalize(nom)
-  const frame = index % 4
+  const object = gender === 'der' ? `den ${lemma}` : nom
+  const frame = index % 3
 
   if (frame === 0) {
-    return [`${cap} ist wichtig.`, `The ${gloss} is important.`]
+    return [`Wo ist ${nom}?`, `Where is the ${gloss}?`]
   }
   if (frame === 1) {
-    return [`Für viele Menschen ist ${nom} wichtig.`, `For many people, the ${gloss} is important.`]
+    return [`Ich sehe ${object}.`, `I see the ${gloss}.`]
   }
-  if (frame === 2) {
-    return [`${cap} bleibt wichtig.`, `The ${gloss} stays important.`]
-  }
-  return [`Heute ist ${nom} wichtig.`, `The ${gloss} is important today.`]
+  return [`Ich brauche ${object}.`, `I need the ${gloss}.`]
 }
 
 /**
@@ -83,7 +78,7 @@ export const expandAdjectiveTable = (source: string, origin: string): SeedWord[]
     const gloss = parts[1]?.trim() ?? ''
     const level = parts[2]?.trim() ?? ''
 
-    rendered.push(`${lemma}|-|-|${gloss}|${level}|adjective|Das ist ${lemma}.|That is ${gloss}.`)
+    rendered.push(`${lemma}|-|-|${gloss}|${level}|adjective|Das finde ich ${lemma}.|I find that ${gloss}.`)
   }
 
   return parseLexicon(rendered.join('\n'), origin)

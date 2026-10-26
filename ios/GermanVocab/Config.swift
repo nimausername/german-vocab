@@ -11,6 +11,11 @@ enum WatchSyncKey {
     static let refresh = "refreshToken"
     /// Identity of the plan the phone last loaded. Empty means the phone has no snapshot.
     static let planStamp = "planStamp"
+    static let remindersEnabled = "remindersEnabled"
+    static let reminderMinutes = "reminderMinutes"
+    static let reminderStreak = "reminderStreak"
+    static let reminderStudied = "reminderStudied"
+    static let reminderWords = "reminderWords"
 }
 
 /// Compact identity for a daily queue, shared so the phone and watch compare the same value.

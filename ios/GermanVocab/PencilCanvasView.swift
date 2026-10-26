@@ -18,7 +18,7 @@ final class PencilCanvasStore: ObservableObject {
     }
 }
 
-/// PencilKit writing surface for word production and sentence cloze.
+/// PencilKit writing surface for the word and the sentence.
 struct PencilCanvasView: UIViewRepresentable {
     @ObservedObject var store: PencilCanvasStore
     var isEnabled: Bool = true

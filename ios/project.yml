@@ -2,7 +2,7 @@ name: GermanVocab
 options:
   bundleIdPrefix: de.nimakhabbazi
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "26.0"
     watchOS: "10.0"
 settings:
   SWIFT_VERSION: "5.0"
@@ -37,6 +37,7 @@ targets:
       - path: GermanVocab/Models.swift
       - path: GermanVocab/APIClient.swift
       - path: GermanVocab/Theme.swift
+      - path: GermanVocab/StudyNotificationScheduler.swift
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: de.nimakhabbazi.germanvocab.watchkitapp
       INFOPLIST_FILE: GermanVocabWatch/Info.plist

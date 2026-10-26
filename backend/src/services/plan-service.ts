@@ -3,6 +3,7 @@ import { db } from '../db/client.js'
 import { cards, dailyPlans, words, type UserProfile } from '../db/schema.js'
 import { formatDateInTimezone } from '../lib/dates.js'
 import { newFsrsCard } from './fsrs-service.js'
+import { cardWritesSentence, practiceSentence } from './practice-sentence.js'
 
 export type StudyItem = {
   cardId: string
@@ -14,6 +15,9 @@ export type StudyItem = {
   cefrLevel: string
   exampleDe: string
   exampleEn: string
+  practiceDe: string
+  practiceEn: string
+  writesSentence: boolean
   kind: 'review' | 'new'
   due: string
 }
@@ -26,6 +30,56 @@ export type TodayPlan = {
   queue: StudyItem[]
   streak: number
   studiedToday: boolean
+}
+
+type PlanWord = {
+  id: string
+  lemma: string
+  gender: string | null
+  plural: string | null
+  glossEn: string
+  cefrLevel: string
+  exampleDe: string
+  exampleEn: string
+  sortOrder: number
+  tags: string[]
+}
+
+type PlanCard = {
+  id: string
+  state: number
+  scheduledDays: number
+  due: Date
+}
+
+const toStudyItem = (word: PlanWord, card: PlanCard, kind: 'review' | 'new'): StudyItem => {
+  const practice = practiceSentence({
+    lemma: word.lemma,
+    gender: word.gender,
+    plural: word.plural,
+    glossEn: word.glossEn,
+    tags: word.tags,
+    sortOrder: word.sortOrder,
+    exampleDe: word.exampleDe,
+    exampleEn: word.exampleEn,
+  })
+
+  return {
+    cardId: card.id,
+    wordId: word.id,
+    lemma: word.lemma,
+    gender: word.gender,
+    plural: word.plural,
+    glossEn: word.glossEn,
+    cefrLevel: word.cefrLevel,
+    exampleDe: word.exampleDe,
+    exampleEn: word.exampleEn,
+    practiceDe: practice.de,
+    practiceEn: practice.en,
+    writesSentence: cardWritesSentence(card.state, card.scheduledDays),
+    kind,
+    due: card.due.toISOString(),
+  }
 }
 
 /**
@@ -68,19 +122,9 @@ export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
 
   const newWords = newWordRows.map((row) => row.word)
 
-  const reviewItems: StudyItem[] = dueCards.map(({ card, word }) => ({
-    cardId: card.id,
-    wordId: word.id,
-    lemma: word.lemma,
-    gender: word.gender,
-    plural: word.plural,
-    glossEn: word.glossEn,
-    cefrLevel: word.cefrLevel,
-    exampleDe: word.exampleDe,
-    exampleEn: word.exampleEn,
-    kind: 'review',
-    due: card.due.toISOString(),
-  }))
+  const reviewItems: StudyItem[] = dueCards.map(({ card, word }) =>
+    toStudyItem(word, card, 'review'),
+  )
 
   const newItems: StudyItem[] = []
   for (const word of newWords) {
@@ -114,19 +158,7 @@ export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
       continue
     }
 
-    newItems.push({
-      cardId: card.id,
-      wordId: word.id,
-      lemma: word.lemma,
-      gender: word.gender,
-      plural: word.plural,
-      glossEn: word.glossEn,
-      cefrLevel: word.cefrLevel,
-      exampleDe: word.exampleDe,
-      exampleEn: word.exampleEn,
-      kind: 'new',
-      due: card.due.toISOString(),
-    })
+    newItems.push(toStudyItem(word, card, 'new'))
   }
 
   const introducedTotal = alreadyIntroducedToday + newItems.length

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct WordsView: View {
     @EnvironmentObject private var session: SessionStore
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var words: [LexiconWord] = []
     @State private var total = 0
@@ -14,42 +13,14 @@ struct WordsView: View {
     @State private var isLoading = false
     @State private var isLoadingMore = false
     @State private var errorMessage: String?
-    @State private var selectedWordID: String?
 
     private var filtersAreActive: Bool {
         status != .all || gender != .all
     }
 
-    private var selectedWord: LexiconWord? {
-        guard let selectedWordID else { return nil }
-        return words.first { $0.id == selectedWordID }
-    }
-
     var body: some View {
-        if horizontalSizeClass == .compact {
-            NavigationStack {
-                sidebar
-                    .navigationDestination(for: String.self) { id in
-                        if let word = words.first(where: { $0.id == id }) {
-                            WordDetailView(word: word)
-                        }
-                    }
-            }
-        } else {
-            NavigationSplitView {
-                sidebar
-            } detail: {
-                if let selectedWord {
-                    WordDetailView(word: selectedWord)
-                } else {
-                    ContentUnavailableView(
-                        "No word selected",
-                        systemImage: "text.book.closed",
-                        description: Text("Choose a word from the list.")
-                    )
-                }
-            }
-            .navigationSplitViewStyle(.balanced)
+        NavigationStack {
+            sidebar
         }
     }
 
@@ -133,7 +104,7 @@ struct WordsView: View {
     }
 
     private var wordList: some View {
-        List(selection: $selectedWordID) {
+        List {
             if let errorMessage {
                 Section {
                     Text(errorMessage)
@@ -164,16 +135,13 @@ struct WordsView: View {
         }
     }
 
-    @ViewBuilder
     private func wordRow(_ word: LexiconWord) -> some View {
-        if horizontalSizeClass == .compact {
-            NavigationLink(value: word.id) {
-                WordRow(word: word)
-            }
-        } else {
+        NavigationLink {
+            WordDetailView(word: word)
+        } label: {
             WordRow(word: word)
-                .tag(word.id)
         }
+        .accessibilityHint("Opens details for \(word.headwordWithArticle)")
     }
 
     private func reload() async {
@@ -193,9 +161,6 @@ struct WordsView: View {
             total = result.total
             page = result.page
             hasMore = result.hasMore
-            if let selectedWordID, !words.contains(where: { $0.id == selectedWordID }) {
-                self.selectedWordID = nil
-            }
         } catch {
             errorMessage = error.localizedDescription
             words = []

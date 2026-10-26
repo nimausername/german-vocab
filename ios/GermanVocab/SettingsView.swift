@@ -12,6 +12,7 @@ struct SettingsView: View {
 
     @State private var preferences = ReminderPreferences.load()
     @State private var notificationsDenied = false
+    @State private var reminderStatus: String?
 
     var body: some View {
         NavigationStack {
@@ -83,15 +84,29 @@ struct SettingsView: View {
                         }
                     }
 
+                    if preferences.enabled {
+                        Button {
+                            Task { await sendTestReminder() }
+                        } label: {
+                            Label("Send a test reminder", systemImage: "bell.badge")
+                        }
+                    }
+
                     if notificationsDenied {
-                        Label("Notifications are off for German Vocab in iOS Settings.", systemImage: "bell.slash")
+                        Label("Allow notifications in Settings → Notifications → German Vocab.", systemImage: "bell.slash")
                             .font(.footnote)
                             .foregroundStyle(.red)
+                    }
+
+                    if let reminderStatus {
+                        Text(reminderStatus)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 } header: {
                     Text("Reminders")
                 } footer: {
-                    Text("Reminders spread from the first time to the last. From 17:00 on, a reminder mentions your streak when today's session is still unfinished. Apple Watch shows them while the iPhone is locked.")
+                    Text(reminderFooter)
                 }
 
                 Section {
@@ -135,6 +150,7 @@ struct SettingsView: View {
                 next.save()
                 Task {
                     await StudyNotificationScheduler.reschedule()
+                    PhoneWatchBridge.shared.syncReminders()
                     await refreshNotificationStatus()
                 }
             }
@@ -181,6 +197,26 @@ struct SettingsView: View {
         } catch {
             dailyNewLimit = savedLimit
             limitError = error.localizedDescription
+        }
+    }
+
+    private var reminderFooter: String {
+        let schedule = "Reminders repeat every day between the first and last time. From 17:00, a reminder mentions your streak when today's session is still unfinished."
+        guard preferences.enabled, let next = StudyNotificationScheduler.nextFireDate() else {
+            return schedule
+        }
+        let time = next.formatted(date: .omitted, time: .shortened)
+        let when = Calendar.current.isDateInToday(next) ? "today" : "tomorrow"
+        return "Next reminder \(when) at \(time). \(schedule)"
+    }
+
+    private func sendTestReminder() async {
+        reminderStatus = await StudyNotificationScheduler.sendTest()
+        PhoneWatchBridge.shared.sendTestReminder()
+        PhoneWatchBridge.shared.syncReminders()
+        await refreshNotificationStatus()
+        if let failure = StudyNotificationScheduler.lastFailure, notificationsDenied == false {
+            reminderStatus = failure
         }
     }
 

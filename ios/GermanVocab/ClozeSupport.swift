@@ -155,6 +155,16 @@ enum ClozeSupport {
         normalize(value).replacingOccurrences(of: " ", with: "")
     }
 
+    /// Grades a full sentence. The bare word is not enough.
+    static func evaluateSentence(answer: String, expected: String) -> ClozeResult {
+        let answerKey = normalize(answer)
+        guard !answerKey.isEmpty else { return .wrong }
+        if answerKey == normalize(expected) || compactKey(answer) == compactKey(expected) {
+            return .full
+        }
+        return .wrong
+    }
+
     /// Public list used to bias handwriting recognition toward valid answers.
     static func acceptedAnswersForRecognition(prompt: ClozePrompt, item: StudyItem) -> [String] {
         acceptedAnswers(prompt: prompt, item: item)

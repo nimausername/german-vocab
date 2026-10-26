@@ -79,68 +79,115 @@ struct ReminderContext: Equatable, Codable {
     }
 }
 
-/// Local reminders for iPhone and iPad. A locked iPhone mirrors them to Apple Watch.
+/// Repeating local reminders. Each device schedules its own, so the watch alerts even when the iPhone is unlocked.
+@MainActor
 enum StudyNotificationScheduler {
-    private static let scheduledIDsKey = "scheduledReminderIDs"
     private static let legacyID = "daily-study"
+    static var lastFailure: String?
+
+    /// Writes a schedule received from the other device, then queues its notifications.
+    static func applySyncedPayload(_ payload: [String: Any]) async {
+        guard payload[WatchSyncKey.reminderMinutes] != nil else { return }
+        let minutes = (payload[WatchSyncKey.reminderMinutes] as? String ?? "")
+            .split(separator: ",")
+            .compactMap { Int($0) }
+        guard !minutes.isEmpty else { return }
+
+        var preferences = ReminderPreferences.load()
+        preferences.enabled = (payload[WatchSyncKey.remindersEnabled] as? String) != "0"
+        preferences.timesPerDay = minutes.count
+        preferences.startMinutes = minutes[0]
+        preferences.endMinutes = minutes[minutes.count - 1]
+        preferences.save()
+
+        if payload[WatchSyncKey.reminderStreak] != nil {
+            ReminderContext(
+                streak: Int(payload[WatchSyncKey.reminderStreak] as? String ?? "") ?? 0,
+                studiedToday: (payload[WatchSyncKey.reminderStudied] as? String) == "1",
+                wordCount: Int(payload[WatchSyncKey.reminderWords] as? String ?? "") ?? 0
+            ).save()
+        }
+        await reschedule()
+    }
 
     static func reschedule() async {
         let center = UNUserNotificationCenter.current()
-        clearPending(center)
+        await clearPending(center)
+        lastFailure = nil
 
         let preferences = ReminderPreferences.load()
         guard preferences.enabled else { return }
-        guard await authorizationGranted(center) else { return }
-
-        let context = ReminderContext.load()
-        let calendar = Calendar.current
-        let now = Date()
-        var identifiers: [String] = []
-
-        for dayOffset in 0..<7 {
-            guard let day = calendar.date(byAdding: .day, value: dayOffset, to: calendar.startOfDay(for: now)) else {
-                continue
-            }
-            let isToday = dayOffset == 0
-            if isToday && context.studiedToday {
-                continue
-            }
-
-            for (index, minutes) in preferences.reminderMinutes().enumerated() {
-                guard let fireDate = date(on: day, minutes: minutes, calendar: calendar),
-                      fireDate > now.addingTimeInterval(30) else {
-                    continue
-                }
-
-                let content = UNMutableNotificationContent()
-                content.title = "German Vocab"
-                content.sound = .default
-                content.body = message(
-                    minutes: minutes,
-                    context: context,
-                    includeCount: isToday,
-                    day: day,
-                    index: index,
-                    calendar: calendar
-                )
-
-                let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
-                let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
-                let identifier = "study-reminder-\(dayOffset)-\(index)"
-                identifiers.append(identifier)
-                try? await center.add(
-                    UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-                )
-            }
+        guard await authorizationGranted(center) else {
+            lastFailure = "Notifications are off for German Vocab. Allow them in Settings → Notifications."
+            return
         }
 
-        UserDefaults.standard.set(identifiers, forKey: scheduledIDsKey)
+        let context = ReminderContext.load()
+        for (index, minutes) in preferences.reminderMinutes().enumerated() {
+            var parts = DateComponents()
+            parts.hour = minutes / 60
+            parts.minute = minutes % 60
+            let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: true)
+            let request = UNNotificationRequest(
+                identifier: "study-reminder-daily-\(index)",
+                content: content(body: message(minutes: minutes, context: context, index: index)),
+                trigger: trigger
+            )
+            do {
+                try await center.add(request)
+            } catch {
+                lastFailure = error.localizedDescription
+            }
+        }
     }
 
-    private static func clearPending(_ center: UNUserNotificationCenter) {
-        let previous = UserDefaults.standard.stringArray(forKey: scheduledIDsKey) ?? []
-        center.removePendingNotificationRequests(withIdentifiers: previous + [legacyID])
-        UserDefaults.standard.removeObject(forKey: scheduledIDsKey)
+    /// Fires one reminder soon so the device can prove notifications are allowed.
+    static func sendTest() async -> String {
+        let center = UNUserNotificationCenter.current()
+        guard await authorizationGranted(center) else {
+            return "Notifications are off for German Vocab. Allow them in Settings → Notifications."
+        }
+        let request = UNNotificationRequest(
+            identifier: "study-reminder-test",
+            content: content(body: "Reminders are on. This is a test."),
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
+        )
+        do {
+            try await center.add(request)
+        } catch {
+            lastFailure = error.localizedDescription
+            return error.localizedDescription
+        }
+        return "A test reminder arrives in a few seconds."
+    }
+
+    static func nextFireDate(now: Date = Date(), calendar: Calendar = .current) -> Date? {
+        let preferences = ReminderPreferences.load()
+        guard preferences.enabled else { return nil }
+        return preferences.reminderMinutes().compactMap { minutes in
+            var parts = calendar.dateComponents([.year, .month, .day], from: now)
+            parts.hour = minutes / 60
+            parts.minute = minutes % 60
+            guard let today = calendar.date(from: parts) else { return nil }
+            return today > now ? today : calendar.date(byAdding: .day, value: 1, to: today)
+        }.min()
+    }
+
+    private static func content(body: String) -> UNMutableNotificationContent {
+        let content = UNMutableNotificationContent()
+        content.title = "German Vocab"
+        content.body = body
+        content.sound = .default
+        return content
+    }
+
+    private static func clearPending(_ center: UNUserNotificationCenter) async {
+        let pending = await center.pendingNotificationRequests()
+        let identifiers = pending.map(\.identifier).filter { identifier in
+            identifier != "study-reminder-test"
+                && (identifier.hasPrefix("study-reminder") || identifier == legacyID)
+        }
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
     }
 
     private static func authorizationGranted(_ center: UNUserNotificationCenter) async -> Bool {
@@ -157,37 +204,23 @@ enum StudyNotificationScheduler {
         }
     }
 
-    private static func date(on day: Date, minutes: Int, calendar: Calendar) -> Date? {
-        var parts = calendar.dateComponents([.year, .month, .day], from: day)
-        parts.hour = minutes / 60
-        parts.minute = minutes % 60
-        return calendar.date(from: parts)
-    }
-
-    private static func message(
-        minutes: Int,
-        context: ReminderContext,
-        includeCount: Bool,
-        day: Date,
-        index: Int,
-        calendar: Calendar
-    ) -> String {
+    private static func message(minutes: Int, context: ReminderContext, index: Int) -> String {
         let hour = minutes / 60
-        let dayOfYear = calendar.ordinality(of: .day, in: .year, for: day) ?? 1
+        if context.studiedToday && hour >= 17 {
+            return "Today is done. Your streak is safe until tomorrow."
+        }
         if context.streak > 0 && hour >= 17 {
             let lines = streakLines(context.streak)
-            return lines[(dayOfYear + index) % lines.count]
+            return lines[index % lines.count]
         }
-
-        if includeCount && context.wordCount > 0 {
+        if context.wordCount > 0 {
             let countLine = context.wordCount == 1
                 ? "1 word is ready."
                 : "\(context.wordCount) words are ready."
             let lines = [countLine] + practiceLines
-            return lines[(dayOfYear + index) % lines.count]
+            return lines[index % lines.count]
         }
-
-        return practiceLines[(dayOfYear + index) % practiceLines.count]
+        return practiceLines[index % practiceLines.count]
     }
 
     private static let practiceLines = [

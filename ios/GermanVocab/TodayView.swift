@@ -165,6 +165,7 @@ struct TodayView: View {
                 wordCount: loadedPlan.queue.count
             ).save()
             await StudyNotificationScheduler.reschedule()
+            PhoneWatchBridge.shared.syncReminders()
         } catch {
             errorMessage = error.localizedDescription
         }

@@ -119,13 +119,41 @@ final class PhoneWatchBridge: NSObject, WCSessionDelegate {
         try? session.updateApplicationContext(context())
     }
 
+    /// Sends the current reminder schedule to the watch.
+    func syncReminders() {
+        transmit()
+    }
+
+    /// Asks the reachable watch to show a reminder in a few seconds.
+    func sendTestReminder() {
+        guard WCSession.isSupported() else { return }
+        let session = WCSession.default
+        guard session.activationState == .activated, session.isReachable else { return }
+        session.sendMessage(
+            ["request": "test-reminder"],
+            replyHandler: { _ in },
+            errorHandler: { _ in }
+        )
+    }
+
     private func context() -> [String: Any] {
         lock.lock()
-        defer { lock.unlock() }
+        let access = accessToken
+        let refresh = refreshToken
+        let stamp = planStamp
+        lock.unlock()
+        let preferences = ReminderPreferences.load()
+        let reminder = ReminderContext.load()
+        let minutes = preferences.reminderMinutes().map(String.init).joined(separator: ",")
         return [
-            WatchSyncKey.access: accessToken,
-            WatchSyncKey.refresh: refreshToken,
-            WatchSyncKey.planStamp: planStamp,
+            WatchSyncKey.access: access,
+            WatchSyncKey.refresh: refresh,
+            WatchSyncKey.planStamp: stamp,
+            WatchSyncKey.remindersEnabled: preferences.enabled ? "1" : "0",
+            WatchSyncKey.reminderMinutes: minutes,
+            WatchSyncKey.reminderStreak: String(reminder.streak),
+            WatchSyncKey.reminderStudied: reminder.studiedToday ? "1" : "0",
+            WatchSyncKey.reminderWords: String(reminder.wordCount),
         ]
     }
 }

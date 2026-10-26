@@ -88,6 +88,12 @@ final class WatchStudyModel: NSObject, ObservableObject {
             lastSeenPhoneStamp = stampAtStart
             persistCache()
             errorMessage = nil
+            ReminderContext(
+                streak: fetched.streak,
+                studiedToday: fetched.studiedToday,
+                wordCount: fetched.queue.count
+            ).save()
+            await StudyNotificationScheduler.reschedule()
         }
 
         isLoading = false
@@ -123,6 +129,11 @@ final class WatchStudyModel: NSObject, ObservableObject {
             revealed = false
             startedAt = Date()
             persistCache()
+            var reminder = ReminderContext.load()
+            reminder.studiedToday = true
+            reminder.wordCount = queue.count
+            reminder.save()
+            await StudyNotificationScheduler.reschedule()
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -196,6 +207,7 @@ final class WatchStudyModel: NSObject, ObservableObject {
         let session = WCSession.default
         guard session.activationState == .activated else { return }
         let context = session.receivedApplicationContext
+        await StudyNotificationScheduler.applySyncedPayload(context)
         let phoneHasReported = context[WatchSyncKey.access] != nil
         if phoneHasReported {
             let access = context[WatchSyncKey.access] as? String ?? ""
@@ -277,6 +289,28 @@ extension WatchStudyModel: WCSessionDelegate {
         }
     }
 
+    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
+        guard message["request"] as? String == "test-reminder" else { return }
+        Task { @MainActor in
+            _ = await StudyNotificationScheduler.sendTest()
+        }
+    }
+
+    nonisolated func session(
+        _ session: WCSession,
+        didReceiveMessage message: [String: Any],
+        replyHandler: @escaping ([String: Any]) -> Void
+    ) {
+        guard message["request"] as? String == "test-reminder" else {
+            replyHandler([:])
+            return
+        }
+        Task { @MainActor in
+            _ = await StudyNotificationScheduler.sendTest()
+        }
+        replyHandler([:])
+    }
+
     nonisolated func session(
         _ session: WCSession,
         didReceiveApplicationContext applicationContext: [String: Any]
@@ -286,6 +320,7 @@ extension WatchStudyModel: WCSessionDelegate {
         let hasTokens = applicationContext[WatchSyncKey.access] != nil
         let stamp = applicationContext[WatchSyncKey.planStamp] as? String
         Task { @MainActor in
+            await StudyNotificationScheduler.applySyncedPayload(applicationContext)
             if hasTokens {
                 apply(access: access, refresh: refresh)
             }

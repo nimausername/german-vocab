@@ -88,12 +88,12 @@ Review ratings: `1=Again`, `2=Hard`, `3=Good`, `4=Easy`
 
 1. Words are ordered by `sortOrder` / CEFR.
 2. Each day: all **due** cards + up to **N** new words (default 20, changeable in Settings from 1 to 50).
-3. You recall, reveal, and rate; FSRS sets the next `due` time.
-4. Progress is stored per Keycloak user in PostgreSQL.
+3. A new word is shown once, then you write it. While the card is still young, you also write a short everyday German sentence from the English. That sentence is the word’s own example when it is at most eight words. Repeated templates such as “Das ist …” or “… ist wichtig” are replaced with a daily line: “Wo ist …?”, “Ich sehe …”, or “Ich brauche …”. Once a review interval is a week or longer, the session is only the word.
+4. You rate the card; FSRS sets the next `due` time.
+5. Progress is stored per Keycloak user in PostgreSQL.
 
 ## Roadmap
 
-- Cloze / production drills
 - Audio (TTS)
 - Offline cache
 - In-app registration via Keycloak Admin API

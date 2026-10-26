@@ -9,12 +9,14 @@
 /* Begin PBXBuildFile section */
 		06FD0874048454C95B401B68 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C61D3C87E7796086A5B20E2E /* APIClient.swift */; };
 		09DB79A39F5EE492DF2F9458 /* ClozeSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075E45E09857E534BDF2BEA8 /* ClozeSupport.swift */; };
+		8D5F0B2C3E9A5B7F1D4C6E82 /* SentencePractice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C4E9A1B2D8F4A6E0C3B5D71 /* SentencePractice.swift */; };
 		111ABD4CDFF41A1B8CC30413 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8604458387A92E97258214B0 /* RootView.swift */; };
 		21217AA078FCE29BE46E51EE /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 983FDC34A422E4014DA43B69 /* Theme.swift */; };
 		21CF3A712F130D682AA97E0A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C645DA85EF5241121A34551C /* Assets.xcassets */; };
 		253B84B8813F555A529F4A11 /* WatchStudyModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCE7B418437AD13F24F9F513 /* WatchStudyModel.swift */; };
 		25901D33ABC6E503E851A4D5 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5574A69AD2A82F1397E5D276 /* Models.swift */; };
 		25B73FAE409E1C66F8DB8423 /* WatchStudyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10D98F322F9836FB412A02B1 /* WatchStudyView.swift */; };
+		32DA5DCDC24AB8C6BE0851A7 /* StudyNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BB61C93F6BE5598A55814F1 /* StudyNotificationScheduler.swift */; };
 		43E525BF9853B95A1262FCF0 /* PencilCanvasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2F064B04BB9B457CF72556B /* PencilCanvasView.swift */; };
 		45DBED8B568B91EE5BC23939 /* WordsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51AD6E876B0ECEFCDD71895D /* WordsView.swift */; };
 		4E759CA0548F97CDE58C1E9B /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13F1ED7C329A66340935EC08 /* Config.swift */; };
@@ -22,11 +24,11 @@
 		5388AFBABBD184CF4D6A1646 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13F1ED7C329A66340935EC08 /* Config.swift */; };
 		561AB8A7825E85FE34A18E5B /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5574A69AD2A82F1397E5D276 /* Models.swift */; };
 		5BA5BD288C5428548418514E /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA0786B1A7CD17FCF9BAD494 /* WatchApp.swift */; };
+		5F9D36773281AB410C770FBD /* Interface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 866AECA1B91CAF666D2F0621 /* Interface.swift */; };
 		88AEEA92B749433096F7AF2F /* GermanVocabApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2130118127DCD0F03E9C3E /* GermanVocabApp.swift */; };
 		8A995F7673E329D663ED86F6 /* PhoneWatchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 085FD54E9556B246A4BE83ED /* PhoneWatchBridge.swift */; };
 		9338C2C65668A2B0C6C8A716 /* HandwritingRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 833466D1E80DDB1510777BE1 /* HandwritingRecognizer.swift */; };
 		97C71D04D2762A9EF0163855 /* StudyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A8B7BEAA6DD7A738EBFCCC5 /* StudyView.swift */; };
-		A91C4E70B2D84F16C3A05E88 /* Interface.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E2D14A90C653F28D1AB440 /* Interface.swift */; };
 		A766CD9BEAD60F4DBCF28906 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6351C2778F15D05CD6BDFB0C /* StatsView.swift */; };
 		B0B00F37FD0AB7A720F4B964 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C61D3C87E7796086A5B20E2E /* APIClient.swift */; };
 		D26D3FDAA13B285014A87487 /* WordDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC8B5CF8C5B3C550D483945C /* WordDetailView.swift */; };
@@ -65,6 +67,7 @@
 
 /* Begin PBXFileReference section */
 		075E45E09857E534BDF2BEA8 /* ClozeSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClozeSupport.swift; sourceTree = "<group>"; };
+		7C4E9A1B2D8F4A6E0C3B5D71 /* SentencePractice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentencePractice.swift; sourceTree = "<group>"; };
 		085FD54E9556B246A4BE83ED /* PhoneWatchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneWatchBridge.swift; sourceTree = "<group>"; };
 		10D98F322F9836FB412A02B1 /* WatchStudyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchStudyView.swift; sourceTree = "<group>"; };
 		13F1ED7C329A66340935EC08 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
@@ -81,8 +84,8 @@
 		71F07513DCA499AAA60D78CD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		833466D1E80DDB1510777BE1 /* HandwritingRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandwritingRecognizer.swift; sourceTree = "<group>"; };
 		8604458387A92E97258214B0 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		866AECA1B91CAF666D2F0621 /* Interface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interface.swift; sourceTree = "<group>"; };
 		983FDC34A422E4014DA43B69 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		B7E2D14A90C653F28D1AB440 /* Interface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interface.swift; sourceTree = "<group>"; };
 		BF88CE9F90D276253F5F0FAF /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		C61D3C87E7796086A5B20E2E /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		C645DA85EF5241121A34551C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -130,11 +133,12 @@
 				C61D3C87E7796086A5B20E2E /* APIClient.swift */,
 				1B29F73ECE29971DA5B0CBD7 /* Assets.xcassets */,
 				075E45E09857E534BDF2BEA8 /* ClozeSupport.swift */,
+				7C4E9A1B2D8F4A6E0C3B5D71 /* SentencePractice.swift */,
 				13F1ED7C329A66340935EC08 /* Config.swift */,
 				5C2130118127DCD0F03E9C3E /* GermanVocabApp.swift */,
 				833466D1E80DDB1510777BE1 /* HandwritingRecognizer.swift */,
 				36DD9CBFC70F6FF85E98A65A /* Info.plist */,
-				B7E2D14A90C653F28D1AB440 /* Interface.swift */,
+				866AECA1B91CAF666D2F0621 /* Interface.swift */,
 				BF88CE9F90D276253F5F0FAF /* LoginView.swift */,
 				5574A69AD2A82F1397E5D276 /* Models.swift */,
 				F2F064B04BB9B457CF72556B /* PencilCanvasView.swift */,
@@ -257,10 +261,11 @@
 			files = (
 				B0B00F37FD0AB7A720F4B964 /* APIClient.swift in Sources */,
 				09DB79A39F5EE492DF2F9458 /* ClozeSupport.swift in Sources */,
+				8D5F0B2C3E9A5B7F1D4C6E82 /* SentencePractice.swift in Sources */,
 				5388AFBABBD184CF4D6A1646 /* Config.swift in Sources */,
 				88AEEA92B749433096F7AF2F /* GermanVocabApp.swift in Sources */,
 				9338C2C65668A2B0C6C8A716 /* HandwritingRecognizer.swift in Sources */,
-				A91C4E70B2D84F16C3A05E88 /* Interface.swift in Sources */,
+				5F9D36773281AB410C770FBD /* Interface.swift in Sources */,
 				E626F6238073FF76DBFF1F5E /* LoginView.swift in Sources */,
 				561AB8A7825E85FE34A18E5B /* Models.swift in Sources */,
 				43E525BF9853B95A1262FCF0 /* PencilCanvasView.swift in Sources */,
@@ -285,6 +290,7 @@
 				06FD0874048454C95B401B68 /* APIClient.swift in Sources */,
 				4E759CA0548F97CDE58C1E9B /* Config.swift in Sources */,
 				25901D33ABC6E503E851A4D5 /* Models.swift in Sources */,
+				32DA5DCDC24AB8C6BE0851A7 /* StudyNotificationScheduler.swift in Sources */,
 				21217AA078FCE29BE46E51EE /* Theme.swift in Sources */,
 				5BA5BD288C5428548418514E /* WatchApp.swift in Sources */,
 				253B84B8813F555A529F4A11 /* WatchStudyModel.swift in Sources */,

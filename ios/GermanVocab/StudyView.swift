@@ -3,14 +3,18 @@ import SwiftUI
 
 private enum StudyStage: Int {
     case writeWord = 0
-    case writeCloze = 1
+    case writeSentence = 1
     case rate = 2
 
-    func title(typing: Bool) -> String {
+    func title(typing: Bool, intro: Bool) -> String {
         switch self {
-        case .writeWord: return typing ? "Type the word" : "Write the word"
-        case .writeCloze: return typing ? "Type the sentence" : "Write the sentence"
-        case .rate: return "Rate this card"
+        case .writeWord:
+            if intro { return "New word" }
+            return typing ? "Type the word" : "Write the word"
+        case .writeSentence:
+            return typing ? "Type the sentence" : "Write the sentence"
+        case .rate:
+            return "Rate this card"
         }
     }
 }
@@ -23,17 +27,17 @@ struct StudyView: View {
     @State private var queue: [StudyItem]
     @State private var initialCount: Int
     @State private var stage: StudyStage = .writeWord
+    @State private var showingIntro: Bool
 
     @StateObject private var wordCanvas = PencilCanvasStore()
-    @StateObject private var clozeCanvas = PencilCanvasStore()
-    @State private var clozePrompt: ClozePrompt?
+    @StateObject private var sentenceCanvas = PencilCanvasStore()
 
     @State private var recognizedWord = ""
-    @State private var recognizedCloze = ""
+    @State private var recognizedSentence = ""
     @State private var wordResult: ClozeResult?
-    @State private var clozeResult: ClozeResult?
+    @State private var sentenceResult: ClozeResult?
     @State private var wordChecked = false
-    @State private var clozeChecked = false
+    @State private var sentenceChecked = false
     @State private var failedProduction = false
     @State private var isRecognizing = false
     @State private var typedAnswer = ""
@@ -56,6 +60,7 @@ struct StudyView: View {
     init(initialQueue: [StudyItem]) {
         _queue = State(initialValue: initialQueue)
         _initialCount = State(initialValue: max(initialQueue.count, 1))
+        _showingIntro = State(initialValue: initialQueue.first?.isNew == true)
     }
 
     private var completed: Int {
@@ -104,15 +109,15 @@ struct StudyView: View {
                     }
                     .font(.subheadline)
 
-                    stageTrack
+                    stageTrack(for: current)
                 }
 
                 Group {
                     switch stage {
                     case .writeWord:
                         writeWordStage(current)
-                    case .writeCloze:
-                        writeClozeStage(current)
+                    case .writeSentence:
+                        writeSentenceStage(current)
                     case .rate:
                         rateStage(current)
                     }
@@ -135,9 +140,9 @@ struct StudyView: View {
             guard new, !old else { return nil }
             return feedback(for: wordResult)
         }
-        .sensoryFeedback(trigger: clozeChecked) { old, new in
+        .sensoryFeedback(trigger: sentenceChecked) { old, new in
             guard new, !old else { return nil }
-            return feedback(for: clozeResult)
+            return feedback(for: sentenceResult)
         }
         .sensoryFeedback(.selection, trigger: queue.count) { old, new in
             new < old
@@ -147,21 +152,27 @@ struct StudyView: View {
         }
     }
 
-    private var stageTrack: some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private func stages(for item: StudyItem) -> [StudyStage] {
+        item.writesSentence ? [.writeWord, .writeSentence, .rate] : [.writeWord, .rate]
+    }
+
+    private func stageTrack(for item: StudyItem) -> some View {
+        let steps = stages(for: item)
+        let currentIndex = steps.firstIndex(of: stage) ?? 0
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                ForEach(0..<3, id: \.self) { index in
+                ForEach(Array(steps.enumerated()), id: \.offset) { index, _ in
                     Capsule()
-                        .fill(index <= stage.rawValue ? AppTheme.accent : Color.primary.opacity(0.12))
+                        .fill(index <= currentIndex ? AppTheme.accent : Color.primary.opacity(0.12))
                         .frame(height: 5)
                 }
             }
             .animation(AppMotion.step, value: stage)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Step \(stage.rawValue + 1) of 3")
-            .accessibilityValue(stage.title(typing: typingIsPrimary))
+            .accessibilityLabel("Step \(currentIndex + 1) of \(steps.count)")
+            .accessibilityValue(stage.title(typing: typingIsPrimary, intro: showingIntro))
 
-            Text(stage.title(typing: typingIsPrimary))
+            Text(stage.title(typing: typingIsPrimary, intro: showingIntro))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
         }
@@ -180,7 +191,40 @@ struct StudyView: View {
 
     // MARK: - Stage 1: Write the word
 
+    @ViewBuilder
     private func writeWordStage(_ current: StudyItem) -> some View {
+        if showingIntro {
+            introStage(current)
+        } else {
+            recallWordStage(current)
+        }
+    }
+
+    private func introStage(_ current: StudyItem) -> some View {
+        let sentence = SentencePractice.resolve(current)
+        return VStack(spacing: 16) {
+            kindLabel(current)
+
+            headword(current)
+
+            Text(sentence.german)
+                .font(.title2.weight(.semibold))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+
+            Text(sentence.english)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Text("Look once. Next you write the word, then this sentence.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+    }
+
+    private func recallWordStage(_ current: StudyItem) -> some View {
         VStack(spacing: 16) {
             kindLabel(current)
 
@@ -221,55 +265,46 @@ struct StudyView: View {
         .animation(AppMotion.reveal, value: wordChecked)
     }
 
-    // MARK: - Stage 2: Write in sentence
+    // MARK: - Stage 2: Write the sentence
 
-    private func writeClozeStage(_ current: StudyItem) -> some View {
-        let prompt = clozePrompt ?? ClozeSupport.makePrompt(for: current)
+    private func writeSentenceStage(_ current: StudyItem) -> some View {
+        let sentence = SentencePractice.resolve(current)
 
         return VStack(spacing: 16) {
-            Text(typingIsPrimary ? "Type what fits the blank" : "Write what fits the blank")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            Text(prompt.blankedSentence)
-                .font(.title2.weight(.semibold))
+            Text(sentence.english)
+                .font(.system(.largeTitle, design: .rounded, weight: .bold))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
 
-            Text(current.exampleEn)
+            Text(typingIsPrimary ? "Type the German sentence" : "Write the German sentence")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
             if !typingIsPrimary {
                 WritingPad(
-                    store: clozeCanvas,
-                    isEnabled: !clozeChecked && !isRecognizing,
+                    store: sentenceCanvas,
+                    isEnabled: !sentenceChecked && !isRecognizing,
                     prompt: "Writing pad"
                 )
             }
 
-            if showsTypingField && !clozeChecked {
-                typeFallbackField(hint: prompt.inputHint) {
-                    Task { await checkClozeWriting(for: current) }
+            if showsTypingField && !sentenceChecked {
+                typeFallbackField(hint: "Type the German sentence") {
+                    Task { await checkSentenceWriting(for: current) }
                 }
             }
 
-            if clozeChecked {
+            if sentenceChecked {
                 resultBlock(
-                    recognized: recognizedCloze,
-                    expected: prompt.expected,
-                    result: clozeResult
+                    recognized: recognizedSentence,
+                    expected: sentence.german,
+                    result: sentenceResult
                 )
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(AppMotion.reveal, value: clozeChecked)
-        .task(id: current.cardId) {
-            if clozePrompt == nil {
-                clozePrompt = ClozeSupport.makePrompt(for: current)
-            }
-        }
+        .animation(AppMotion.reveal, value: sentenceChecked)
     }
 
     private func typeFallbackField(hint: String, onSubmit: @escaping () -> Void) -> some View {
@@ -310,7 +345,8 @@ struct StudyView: View {
     // MARK: - Stage 3: Rate
 
     private func rateStage(_ current: StudyItem) -> some View {
-        VStack(spacing: 16) {
+        let sentence = SentencePractice.resolve(current)
+        return VStack(spacing: 16) {
             kindLabel(current)
             headword(current)
 
@@ -320,9 +356,9 @@ struct StudyView: View {
                 .multilineTextAlignment(.center)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text(current.exampleDe)
+                Text(sentence.german)
                     .font(.body.italic())
-                Text(current.exampleEn)
+                Text(sentence.english)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -421,11 +457,19 @@ struct StudyView: View {
 
             switch stage {
             case .writeWord:
-                if wordChecked {
-                    prominentButton("Continue to Sentence") {
-                        clozePrompt = ClozeSupport.makePrompt(for: current)
-                        clozeCanvas.clear()
-                        withAnimation(AppMotion.step) { stage = .writeCloze }
+                if showingIntro {
+                    prominentButton("Write it") {
+                        withAnimation(AppMotion.step) { showingIntro = false }
+                    }
+                } else if wordChecked {
+                    prominentButton(current.writesSentence ? "Continue to Sentence" : "Continue") {
+                        wordCanvas.clear()
+                        sentenceCanvas.clear()
+                        typedAnswer = ""
+                        showTypeFallback = false
+                        withAnimation(AppMotion.step) {
+                            stage = current.writesSentence ? .writeSentence : .rate
+                        }
                     }
                 } else {
                     checkControls(
@@ -436,17 +480,17 @@ struct StudyView: View {
                     }
                 }
 
-            case .writeCloze:
-                if clozeChecked {
+            case .writeSentence:
+                if sentenceChecked {
                     prominentButton("Continue") {
                         withAnimation(AppMotion.step) { stage = .rate }
                     }
                 } else {
                     checkControls(
                         title: checkTitle,
-                        canCheck: canCheckAnswer(hasStrokes: clozeCanvas.hasStrokes)
+                        canCheck: canCheckAnswer(hasStrokes: sentenceCanvas.hasStrokes)
                     ) {
-                        Task { await checkClozeWriting(for: current) }
+                        Task { await checkSentenceWriting(for: current) }
                     }
                 }
 
@@ -540,22 +584,20 @@ struct StudyView: View {
         }
     }
 
-    private func checkClozeWriting(for current: StudyItem) async {
+    private func checkSentenceWriting(for current: StudyItem) async {
         errorMessage = nil
         isRecognizing = true
         defer { isRecognizing = false }
 
-        let prompt = clozePrompt ?? ClozeSupport.makePrompt(for: current)
-        clozePrompt = prompt
-        let expected = ClozeSupport.acceptedAnswersForRecognition(prompt: prompt, item: current)
+        let sentence = SentencePractice.resolve(current)
 
         do {
             let recognition = try await recognitionResult(
-                drawing: clozeCanvas.liveDrawing,
+                drawing: sentenceCanvas.liveDrawing,
                 typed: typedAnswer,
-                expected: expected
+                expected: [sentence.german]
             )
-            applyClozeResult(recognition, prompt: prompt, item: current)
+            applySentenceResult(recognition, expected: sentence.german)
         } catch {
             errorMessage = error.localizedDescription
             withAnimation(AppMotion.step) { showTypeFallback = true }
@@ -597,21 +639,19 @@ struct StudyView: View {
         }
     }
 
-    private func applyClozeResult(
+    private func applySentenceResult(
         _ recognition: HandwritingRecognition,
-        prompt: ClozePrompt,
-        item: StudyItem
+        expected: String
     ) {
-        recognizedCloze = recognition.matchedExpected
+        recognizedSentence = recognition.matchedExpected
             ? "\(recognition.rawText) → \(recognition.resolvedText)"
             : recognition.rawText
-        let result = ClozeSupport.evaluate(
+        let result = ClozeSupport.evaluateSentence(
             answer: recognition.resolvedText,
-            prompt: prompt,
-            item: item
+            expected: expected
         )
-        clozeResult = result
-        clozeChecked = true
+        sentenceResult = result
+        sentenceChecked = true
         if result != .full {
             failedProduction = true
         }
@@ -714,15 +754,15 @@ struct StudyView: View {
 
     private func resetCardState() {
         stage = .writeWord
+        showingIntro = queue.first?.isNew == true
         wordCanvas.clear()
-        clozeCanvas.clear()
-        clozePrompt = nil
+        sentenceCanvas.clear()
         recognizedWord = ""
-        recognizedCloze = ""
+        recognizedSentence = ""
         wordResult = nil
-        clozeResult = nil
+        sentenceResult = nil
         wordChecked = false
-        clozeChecked = false
+        sentenceChecked = false
         failedProduction = false
         isRecognizing = false
         typedAnswer = ""

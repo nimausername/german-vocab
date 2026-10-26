@@ -22,12 +22,58 @@ struct StudyItem: Codable, Identifiable {
     let cefrLevel: String
     let exampleDe: String
     let exampleEn: String
+    /// Short German sentence to write. Empty on servers that do not send one yet.
+    let practiceDe: String
+    let practiceEn: String
+    /// False once the review interval is a week or longer. Missing on older servers.
+    let writesSentence: Bool
     let kind: String
     let due: String
 
     var id: String { cardId }
 
     var isNew: Bool { kind == "new" }
+
+    enum CodingKeys: String, CodingKey {
+        case cardId, wordId, lemma, gender, plural, glossEn, cefrLevel
+        case exampleDe, exampleEn, practiceDe, practiceEn, writesSentence, kind, due
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        cardId = try container.decode(String.self, forKey: .cardId)
+        wordId = try container.decode(String.self, forKey: .wordId)
+        lemma = try container.decode(String.self, forKey: .lemma)
+        gender = try container.decodeIfPresent(String.self, forKey: .gender)
+        plural = try container.decodeIfPresent(String.self, forKey: .plural)
+        glossEn = try container.decode(String.self, forKey: .glossEn)
+        cefrLevel = try container.decode(String.self, forKey: .cefrLevel)
+        exampleDe = try container.decode(String.self, forKey: .exampleDe)
+        exampleEn = try container.decode(String.self, forKey: .exampleEn)
+        practiceDe = try container.decodeIfPresent(String.self, forKey: .practiceDe) ?? ""
+        practiceEn = try container.decodeIfPresent(String.self, forKey: .practiceEn) ?? ""
+        writesSentence = try container.decodeIfPresent(Bool.self, forKey: .writesSentence) ?? true
+        kind = try container.decode(String.self, forKey: .kind)
+        due = try container.decode(String.self, forKey: .due)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(cardId, forKey: .cardId)
+        try container.encode(wordId, forKey: .wordId)
+        try container.encode(lemma, forKey: .lemma)
+        try container.encodeIfPresent(gender, forKey: .gender)
+        try container.encodeIfPresent(plural, forKey: .plural)
+        try container.encode(glossEn, forKey: .glossEn)
+        try container.encode(cefrLevel, forKey: .cefrLevel)
+        try container.encode(exampleDe, forKey: .exampleDe)
+        try container.encode(exampleEn, forKey: .exampleEn)
+        try container.encode(practiceDe, forKey: .practiceDe)
+        try container.encode(practiceEn, forKey: .practiceEn)
+        try container.encode(writesSentence, forKey: .writesSentence)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(due, forKey: .due)
+    }
 
     /// Normalized article for nouns: der / die / das.
     var article: String? {
