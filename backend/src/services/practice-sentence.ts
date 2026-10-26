@@ -136,6 +136,14 @@ export type PracticeSentence = {
   en: string
 }
 
+/** The practice sentence with the target word replaced by a blank. */
+export type BlankedSentence = {
+  blankDe: string
+  blankAnswer: string
+}
+
+export type PracticePrompt = PracticeSentence & BlankedSentence
+
 type LemmaEntry = {
   sortOrder: number
   tags: readonly string[]
@@ -286,11 +294,16 @@ const pickFrame = (frames: PracticeSentence[], sortOrder: number): PracticeSente
 }
 
 /**
- * Chooses the German sentence the learner writes, and its English prompt.
+ * Chooses the German sentence the learner hears and later completes.
  * A real example of at most eight words wins. Template lines become a short
- * daily sentence instead.
+ * daily sentence instead. The returned blank removes the target word.
  */
-export const practiceSentence = (word: PracticeWord): PracticeSentence => {
+export const practiceSentence = (word: PracticeWord): PracticePrompt => {
+  const line = choosePracticeSentence(word)
+  return { ...line, ...blankInSentence(line.de, word) }
+}
+
+const choosePracticeSentence = (word: PracticeWord): PracticeSentence => {
   const index = curriculumIndex()
 
   if (usableExample(word)) {
@@ -537,13 +550,165 @@ const determinerSentence = (lemma: string, gloss: string): PracticeSentence | nu
   )
 }
 
+const DETERMINERS = new Set([
+  'der', 'die', 'das', 'den', 'dem', 'des',
+  'ein', 'eine', 'einen', 'einem', 'einer', 'eines',
+  'kein', 'keine', 'keinen', 'keinem', 'keiner', 'keines',
+  'mein', 'meine', 'meinen', 'meinem', 'meiner', 'meines',
+  'dein', 'deine', 'deinen', 'deinem', 'deiner', 'deines',
+  'sein', 'seine', 'seinen', 'seinem', 'seiner', 'seines',
+  'ihr', 'ihre', 'ihren', 'ihrem', 'ihrer', 'ihres',
+  'unser', 'unsere', 'unseren', 'unserem', 'unserer', 'unseres',
+  'euer', 'eure', 'euren', 'eurem', 'eurer', 'eures',
+])
+
+/** Present-tense forms that a stem match cannot rebuild. */
+const INFLECTED: Record<string, readonly string[]> = {
+  sein: ['bin', 'bist', 'ist', 'sind', 'seid', 'war', 'wart', 'waren'],
+  haben: ['habe', 'hast', 'hat', 'habt'],
+  werden: ['werde', 'wirst', 'wird', 'werdet'],
+  können: ['kann', 'kannst', 'könnt'],
+  müssen: ['muss', 'musst', 'müsst'],
+  wollen: ['will', 'willst', 'wollt'],
+  mögen: ['mag', 'magst', 'mögt'],
+  dürfen: ['darf', 'darfst', 'dürft'],
+  sollen: ['soll', 'sollst', 'sollt'],
+  gehen: ['gehe', 'gehst', 'geht', 'ging'],
+  essen: ['esse', 'isst', 'esst', 'aß'],
+  lesen: ['lese', 'liest', 'lest'],
+  sehen: ['sehe', 'siehst', 'sieht'],
+  sprechen: ['spreche', 'sprichst', 'spricht'],
+  nehmen: ['nehme', 'nimmst', 'nimmt'],
+  geben: ['gebe', 'gibst', 'gibt'],
+  fahren: ['fahre', 'fährst', 'fährt'],
+  schlafen: ['schlafe', 'schläfst', 'schläft'],
+  tragen: ['trage', 'trägst', 'trägt'],
+  helfen: ['helfe', 'hilfst', 'hilft'],
+  wissen: ['weiß', 'weißt'],
+  kennen: ['kenne', 'kennst', 'kennt'],
+}
+
+const INFLECTION = /^(?:e|st|t|en|est|et|te|ten|test|tet)?$/u
+
+type WordSlice = {
+  text: string
+  start: number
+  end: number
+}
+
+const coreLemma = (lemma: string): string => lemma.replace(/\s*\([^)]*\)\s*/gu, ' ').trim()
+
+const sameWord = (left: string, right: string): boolean =>
+  left.localeCompare(right, 'de', { sensitivity: 'accent' }) === 0
+
+const wordSlices = (sentence: string): WordSlice[] => {
+  const pattern = /[\p{L}\p{N}]+(?:['’-]?[\p{L}\p{N}]+)*/gu
+  const slices: WordSlice[] = []
+  for (const match of sentence.matchAll(pattern)) {
+    const text = match[0]
+    const start = match.index ?? 0
+    slices.push({ text, start, end: start + text.length })
+  }
+  return slices
+}
+
+const findSlice = (slices: WordSlice[], target: string): number =>
+  slices.findIndex((slice) => sameWord(slice.text, target))
+
+const stemOf = (lemma: string): string => lemma.replace(/(?:e[lr]|en|n)$/u, '')
+
 /**
- * New, learning, and relearning cards write the sentence.
- * A review card writes it only while the interval is still under a week.
+ * Replaces the target word in a practice sentence with `_____`.
+ * A leading article stays inside the answer, so “den Tisch” is one blank.
+ * When the citation form is conjugated, the form in the sentence is used.
  */
-export const cardWritesSentence = (state: number, scheduledDays: number): boolean => {
+export const blankInSentence = (sentence: string, word: PracticeWord): BlankedSentence => {
+  const slices = wordSlices(sentence)
+  if (slices.length === 0) {
+    return { blankDe: '_____', blankAnswer: sentence.trim() }
+  }
+
+  const lemma = coreLemma(word.lemma)
+  const targets: string[] = []
+  const addTarget = (value: string) => {
+    const trimmed = value.trim()
+    if (trimmed.length === 0 || trimmed === '-') {
+      return
+    }
+    if (targets.some((item) => sameWord(item, trimmed))) {
+      return
+    }
+    targets.push(trimmed)
+  }
+
+  addTarget(bareNoun(lemma))
+  if (word.plural && word.plural !== '-') {
+    addTarget(bareNoun(word.plural))
+  }
+  addTarget(lemma)
+
+  const spanFor = (index: number, target: string): WordSlice => {
+    const current = slices[index]
+    if (!current) {
+      return slices[0]!
+    }
+    const previous = index > 0 ? slices[index - 1] : undefined
+    const targetIsDeterminer = DETERMINERS.has(target.toLowerCase())
+    if (
+      previous &&
+      !targetIsDeterminer &&
+      DETERMINERS.has(previous.text.toLowerCase())
+    ) {
+      return { text: sentence.slice(previous.start, current.end), start: previous.start, end: current.end }
+    }
+    return current
+  }
+
+  const blankAt = (span: WordSlice): BlankedSentence => ({
+    blankDe: `${sentence.slice(0, span.start)}_____${sentence.slice(span.end)}`,
+    blankAnswer: sentence.slice(span.start, span.end),
+  })
+
+  for (const target of targets) {
+    const index = findSlice(slices, target)
+    if (index >= 0) {
+      return blankAt(spanFor(index, target))
+    }
+  }
+
+  for (const form of INFLECTED[lemma.toLowerCase()] ?? []) {
+    const index = findSlice(slices, form)
+    if (index >= 0) {
+      return blankAt(spanFor(index, form))
+    }
+  }
+
+  const stem = stemOf(bareNoun(lemma)).toLowerCase()
+  if (stem.length >= 3) {
+    const index = slices.findIndex((slice) => {
+      const text = slice.text.toLowerCase()
+      return text.startsWith(stem) && INFLECTION.test(text.slice(stem.length))
+    })
+    if (index >= 0) {
+      return blankAt(spanFor(index, slices[index]?.text ?? stem))
+    }
+  }
+
+  const fallback = [...slices].reverse().find((slice) => !DETERMINERS.has(slice.text.toLowerCase()))
+  return blankAt(fallback ?? slices[slices.length - 1]!)
+}
+
+/**
+ * True when the learner still writes the word from its English meaning.
+ * A review card skips that step once the interval is a week or longer.
+ * The sentence blank stays on every card.
+ */
+export const cardRecallsWord = (state: number, scheduledDays: number): boolean => {
   if (state !== FSRS_REVIEW_STATE) {
     return true
   }
   return scheduledDays < MATURE_INTERVAL_DAYS
 }
+
+/** Older clients still read this flag. It matches `cardRecallsWord`. */
+export const cardWritesSentence = cardRecallsWord

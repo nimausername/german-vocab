@@ -31,6 +31,9 @@ export const words = pgTable(
   (table) => [unique('words_lemma_uidx').on(table.lemma)],
 )
 
+/** New accounts introduce this many words per day until the learner changes it. */
+export const DEFAULT_DAILY_NEW_LIMIT = 8
+
 /**
  * App user mapped from Keycloak subject.
  */
@@ -41,7 +44,7 @@ export const userProfiles = pgTable(
     keycloakSub: varchar('keycloak_sub', { length: 64 }).notNull(),
     email: varchar('email', { length: 256 }),
     displayName: varchar('display_name', { length: 128 }),
-    dailyNewLimit: integer('daily_new_limit').notNull().default(20),
+    dailyNewLimit: integer('daily_new_limit').notNull().default(DEFAULT_DAILY_NEW_LIMIT),
     timezone: varchar('timezone', { length: 64 }).notNull().default('Europe/Berlin'),
     streak: integer('streak').notNull().default(0),
     lastStudyDate: varchar('last_study_date', { length: 10 }),

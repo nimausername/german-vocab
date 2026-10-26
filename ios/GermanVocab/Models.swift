@@ -22,10 +22,16 @@ struct StudyItem: Codable, Identifiable {
     let cefrLevel: String
     let exampleDe: String
     let exampleEn: String
-    /// Short German sentence to write. Empty on servers that do not send one yet.
+    /// Short German sentence for this word. Empty on servers that do not send one yet.
     let practiceDe: String
     let practiceEn: String
-    /// False once the review interval is a week or longer. Missing on older servers.
+    /// Practice sentence with the target word replaced by `_____`.
+    let blankDe: String
+    /// The word that fills `blankDe`, including its article when the sentence has one.
+    let blankAnswer: String
+    /// Young cards write the word from English. Mature cards skip to the blank.
+    let recallWord: Bool
+    /// Same meaning as `recallWord` on current servers. Kept for older plans.
     let writesSentence: Bool
     let kind: String
     let due: String
@@ -36,7 +42,8 @@ struct StudyItem: Codable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case cardId, wordId, lemma, gender, plural, glossEn, cefrLevel
-        case exampleDe, exampleEn, practiceDe, practiceEn, writesSentence, kind, due
+        case exampleDe, exampleEn, practiceDe, practiceEn, blankDe, blankAnswer
+        case recallWord, writesSentence, kind, due
     }
 
     init(from decoder: Decoder) throws {
@@ -52,7 +59,11 @@ struct StudyItem: Codable, Identifiable {
         exampleEn = try container.decode(String.self, forKey: .exampleEn)
         practiceDe = try container.decodeIfPresent(String.self, forKey: .practiceDe) ?? ""
         practiceEn = try container.decodeIfPresent(String.self, forKey: .practiceEn) ?? ""
-        writesSentence = try container.decodeIfPresent(Bool.self, forKey: .writesSentence) ?? true
+        blankDe = try container.decodeIfPresent(String.self, forKey: .blankDe) ?? ""
+        blankAnswer = try container.decodeIfPresent(String.self, forKey: .blankAnswer) ?? ""
+        let legacyWritesSentence = try container.decodeIfPresent(Bool.self, forKey: .writesSentence) ?? true
+        recallWord = try container.decodeIfPresent(Bool.self, forKey: .recallWord) ?? legacyWritesSentence
+        writesSentence = legacyWritesSentence
         kind = try container.decode(String.self, forKey: .kind)
         due = try container.decode(String.self, forKey: .due)
     }
@@ -70,6 +81,9 @@ struct StudyItem: Codable, Identifiable {
         try container.encode(exampleEn, forKey: .exampleEn)
         try container.encode(practiceDe, forKey: .practiceDe)
         try container.encode(practiceEn, forKey: .practiceEn)
+        try container.encode(blankDe, forKey: .blankDe)
+        try container.encode(blankAnswer, forKey: .blankAnswer)
+        try container.encode(recallWord, forKey: .recallWord)
         try container.encode(writesSentence, forKey: .writesSentence)
         try container.encode(kind, forKey: .kind)
         try container.encode(due, forKey: .due)

@@ -65,6 +65,10 @@ struct WatchStudyView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
 
+                Text("Reading practice only")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+
                 headword(item)
 
                 if model.revealed {

@@ -5,15 +5,15 @@ struct PracticeSentence: Equatable {
     let english: String
 }
 
-/// Picks the sentence the learner writes.
+/// Picks the sentence the learner hears and later completes.
 ///
-/// The server sentence is used when the plan includes one. Otherwise a short
-/// frame is built on device so the step still asks for a full sentence.
+/// The server sentence is used when the plan includes one. A short frame is
+/// built on device only when that sentence is missing.
 enum SentencePractice {
     static func resolve(_ item: StudyItem) -> PracticeSentence {
         let german = item.practiceDe.trimmingCharacters(in: .whitespacesAndNewlines)
         let english = item.practiceEn.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !german.isEmpty, !english.isEmpty, !isShallowTemplate(german) {
+        if !german.isEmpty, !english.isEmpty {
             return PracticeSentence(german: german, english: english)
         }
         return fallback(for: item)
@@ -119,20 +119,6 @@ enum SentencePractice {
         }
         let parts = value.split(separator: " ")
         return parts.count == 3 && parts[0] == "das" && parts[1] == "ist"
-    }
-
-    /// Old plans used “Das ist der …” and “Ich kann …” for almost every card.
-    private static func isShallowTemplate(_ sentence: String) -> Bool {
-        if isBoilerplate(sentence) {
-            return true
-        }
-        let value = sentence
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        if value.hasPrefix("das ist der ") || value.hasPrefix("das ist die ") || value.hasPrefix("das ist das ") {
-            return true
-        }
-        return value.hasPrefix("ich kann ")
     }
 
     private static func isCopulaOnly(_ sentence: String) -> Bool {

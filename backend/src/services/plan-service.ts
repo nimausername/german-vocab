@@ -3,7 +3,7 @@ import { db } from '../db/client.js'
 import { cards, dailyPlans, words, type UserProfile } from '../db/schema.js'
 import { formatDateInTimezone } from '../lib/dates.js'
 import { newFsrsCard } from './fsrs-service.js'
-import { cardWritesSentence, practiceSentence } from './practice-sentence.js'
+import { cardRecallsWord, practiceSentence } from './practice-sentence.js'
 
 export type StudyItem = {
   cardId: string
@@ -17,6 +17,11 @@ export type StudyItem = {
   exampleEn: string
   practiceDe: string
   practiceEn: string
+  blankDe: string
+  blankAnswer: string
+  /** Young cards write the word from English. Mature cards skip to the blank. */
+  recallWord: boolean
+  /** Same value as recallWord, kept so older clients still decode the plan. */
   writesSentence: boolean
   kind: 'review' | 'new'
   due: string
@@ -76,7 +81,10 @@ const toStudyItem = (word: PlanWord, card: PlanCard, kind: 'review' | 'new'): St
     exampleEn: word.exampleEn,
     practiceDe: practice.de,
     practiceEn: practice.en,
-    writesSentence: cardWritesSentence(card.state, card.scheduledDays),
+    blankDe: practice.blankDe,
+    blankAnswer: practice.blankAnswer,
+    recallWord: cardRecallsWord(card.state, card.scheduledDays),
+    writesSentence: cardRecallsWord(card.state, card.scheduledDays),
     kind,
     due: card.due.toISOString(),
   }

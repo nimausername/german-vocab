@@ -155,6 +155,50 @@ enum ClozeSupport {
         normalize(value).replacingOccurrences(of: " ", with: "")
     }
 
+    /// The sentence with the target word removed.
+    ///
+    /// Uses the server blank when the plan sent one. Otherwise blanks the noun
+    /// inside the practice sentence on device.
+    static func blankPrompt(for item: StudyItem) -> ClozePrompt {
+        let providedBlank = item.blankDe.trimmingCharacters(in: .whitespacesAndNewlines)
+        let providedAnswer = item.blankAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+        if providedBlank.contains("_____"), !providedAnswer.isEmpty {
+            return makeBlankPrompt(blanked: providedBlank, expected: providedAnswer)
+        }
+
+        let sentence = SentencePractice.resolve(item).german
+        if let prompt = blanked(sentence, target: item.displayNoun) {
+            return prompt
+        }
+        if item.lemma != item.displayNoun, let prompt = blanked(sentence, target: item.lemma) {
+            return prompt
+        }
+        return makeBlankPrompt(blanked: "_____", expected: item.headwordWithArticle)
+    }
+
+    /// Grades the missing word. The citation form and the sentence form both pass.
+    /// The bare noun is only partial when the sentence included an article.
+    static func evaluateBlank(answer: String, expected: String, item: StudyItem) -> ClozeResult {
+        let answerKey = normalize(answer)
+        guard !answerKey.isEmpty else { return .wrong }
+
+        if matches(answer, expected)
+            || matches(answer, item.headwordWithArticle)
+            || matches(answer, item.lemma) {
+            return .full
+        }
+
+        if matches(answer, item.displayNoun) {
+            if let article = leadingArticle(in: expected) ?? item.article,
+               spanIncludesArticle(expected) || item.article != nil {
+                return .partial(missingArticle: article)
+            }
+            return .full
+        }
+
+        return .wrong
+    }
+
     /// Grades a full sentence. The bare word is not enough.
     static func evaluateSentence(answer: String, expected: String) -> ClozeResult {
         let answerKey = normalize(answer)
@@ -215,12 +259,63 @@ enum ClozeSupport {
         return String(first).uppercased() + value.dropFirst()
     }
 
+    private static let leadingArticles: Set<String> = [
+        "der", "die", "das", "den", "dem", "des",
+        "ein", "eine", "einen", "einem", "einer", "eines",
+        "kein", "keine", "keinen", "keinem", "keiner",
+    ]
+
+    private static func matches(_ answer: String, _ expected: String) -> Bool {
+        let trimmed = expected.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        return normalize(answer) == normalize(trimmed) || compactKey(answer) == compactKey(trimmed)
+    }
+
+    private static func makeBlankPrompt(blanked: String, expected: String) -> ClozePrompt {
+        let requiresArticle = spanIncludesArticle(expected)
+        return ClozePrompt(
+            blankedSentence: blanked,
+            expected: expected,
+            requiresArticle: requiresArticle,
+            inputHint: requiresArticle
+                ? "Type the missing word and its article"
+                : "Type the missing word"
+        )
+    }
+
+    private static func blanked(_ sentence: String, target: String) -> ClozePrompt? {
+        guard let match = firstMatch(of: target, in: sentence) else { return nil }
+        let expanded = includingLeadingArticle(range: match.range, in: sentence)
+        let blankedSentence = sentence.replacingCharacters(in: expanded.range, with: "_____")
+        let expected = expanded.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !expected.isEmpty else { return nil }
+        return makeBlankPrompt(blanked: blankedSentence, expected: expected)
+    }
+
+    private static func includingLeadingArticle(
+        range: Range<String.Index>,
+        in source: String
+    ) -> (text: String, range: Range<String.Index>) {
+        let prefix = source[..<range.lowerBound]
+        guard let articleRange = prefix.range(
+            of: #"(?i)(?:der|die|das|den|dem|des|ein|eine|einen|einem|einer|eines|kein|keine|keinen)\s+$"#,
+            options: .regularExpression
+        ) else {
+            return (String(source[range]), range)
+        }
+        let expanded = articleRange.lowerBound..<range.upperBound
+        return (String(source[expanded]), expanded)
+    }
+
+    private static func leadingArticle(in span: String) -> String? {
+        let parts = span.split(separator: " ", omittingEmptySubsequences: true)
+        guard parts.count >= 2 else { return nil }
+        let article = normalize(String(parts[0]))
+        return leadingArticles.contains(article) ? article : nil
+    }
+
     private static func spanIncludesArticle(_ span: String) -> Bool {
-        let parts = span
-            .split(separator: " ", omittingEmptySubsequences: true)
-            .map { normalize(String($0)) }
-        guard let first = parts.first else { return false }
-        return ["der", "die", "das"].contains(first) && parts.count >= 2
+        leadingArticle(in: span) != nil
     }
 
     private static func firstMatch(of target: String, in source: String) -> (text: String, range: Range<String.Index>)? {

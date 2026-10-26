@@ -1,7 +1,9 @@
 import Foundation
 import WatchConnectivity
 
-/// Loads today's queue on the watch and records Learned or Not yet.
+/// Loads today's queue on the watch for a reading pass.
+///
+/// Learned and Not yet move through this queue only. They do not grade the card.
 ///
 /// The queue is kept on the watch for the rest of the local day. The phone is
 /// messaged only when this watch has no session and the phone has not already
@@ -107,36 +109,16 @@ final class WatchStudyModel: NSObject, ObservableObject {
         }
     }
 
+    /// Moves to the next watch card. The phone schedule is left unchanged.
     func mark(learned: Bool) async {
-        guard let item = current, !isSubmitting else { return }
-        isSubmitting = true
-        errorMessage = nil
-        defer { isSubmitting = false }
+        guard let item = current else { return }
+        _ = learned
         let cardId = item.cardId
-        let rating: Rating = learned ? .good : .again
-        let durationMs = Int(Date().timeIntervalSince(startedAt) * 1000)
-        do {
-            _ = try await withAuth { token in
-                try await self.client.submitReview(
-                    token: token,
-                    cardId: cardId,
-                    rating: rating,
-                    durationMs: durationMs
-                )
-            }
-            guard queue.first?.cardId == cardId else { return }
-            queue.removeFirst()
-            revealed = false
-            startedAt = Date()
-            persistCache()
-            var reminder = ReminderContext.load()
-            reminder.studiedToday = true
-            reminder.wordCount = queue.count
-            reminder.save()
-            await StudyNotificationScheduler.reschedule()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+        guard queue.first?.cardId == cardId else { return }
+        queue.removeFirst()
+        revealed = false
+        startedAt = Date()
+        persistCache()
     }
 
     private func withAuth<T>(_ operation: (String) async throws -> T) async throws -> T {

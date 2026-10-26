@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { curriculum } from '../data/corpus.js'
 import {
-  cardWritesSentence,
+  blankInSentence,
+  cardRecallsWord,
   practiceSentence,
   type PracticeWord,
 } from './practice-sentence.js'
@@ -116,12 +117,85 @@ describe('practiceSentence', () => {
     assert.deepEqual(weak, [])
   })
 
-  it('asks for the sentence while a card is young and skips it once the interval is a week', () => {
-    assert.equal(cardWritesSentence(0, 0), true)
-    assert.equal(cardWritesSentence(1, 0), true)
-    assert.equal(cardWritesSentence(3, 1), true)
-    assert.equal(cardWritesSentence(2, 6), true)
-    assert.equal(cardWritesSentence(2, 7), false)
-    assert.equal(cardWritesSentence(2, 21), false)
+  it('asks for the word while a card is young and skips that step after a week', () => {
+    assert.equal(cardRecallsWord(0, 0), true)
+    assert.equal(cardRecallsWord(1, 0), true)
+    assert.equal(cardRecallsWord(3, 1), true)
+    assert.equal(cardRecallsWord(2, 6), true)
+    assert.equal(cardRecallsWord(2, 7), false)
+    assert.equal(cardRecallsWord(2, 21), false)
+  })
+
+  it('blanks the article and noun together, and the conjugated form of a verb', () => {
+    const noun = {
+      lemma: 'der Tisch',
+      gender: 'der',
+      plural: 'die Tische',
+      glossEn: 'table',
+      tags: ['noun'],
+      sortOrder: 1,
+      exampleDe: '',
+      exampleEn: '',
+    }
+    assert.deepEqual(blankInSentence('Wo ist der Tisch?', noun), {
+      blankDe: 'Wo ist _____?',
+      blankAnswer: 'der Tisch',
+    })
+    assert.deepEqual(blankInSentence('Ich sehe den Tisch.', noun), {
+      blankDe: 'Ich sehe _____.',
+      blankAnswer: 'den Tisch',
+    })
+    assert.deepEqual(blankInSentence('Die Tür ist offen.', {
+      ...noun,
+      lemma: 'die Tür',
+      gender: 'die',
+      plural: 'die Türen',
+    }), {
+      blankDe: '_____ ist offen.',
+      blankAnswer: 'Die Tür',
+    })
+    assert.deepEqual(blankInSentence('Ich kann schwimmen.', {
+      ...noun,
+      lemma: 'schwimmen',
+      gender: null,
+      plural: null,
+      tags: ['verb'],
+    }), {
+      blankDe: 'Ich kann _____.',
+      blankAnswer: 'schwimmen',
+    })
+    assert.deepEqual(blankInSentence('Ich bin da.', {
+      ...noun,
+      lemma: 'sein',
+      gender: null,
+      plural: null,
+      tags: ['verb'],
+    }), {
+      blankDe: 'Ich _____ da.',
+      blankAnswer: 'bin',
+    })
+    assert.deepEqual(blankInSentence('Das finde ich wichtig.', {
+      ...noun,
+      lemma: 'wichtig',
+      gender: null,
+      plural: null,
+      tags: ['adjective'],
+    }), {
+      blankDe: 'Das finde ich _____.',
+      blankAnswer: 'wichtig',
+    })
+  })
+
+  it('puts exactly one blank back into the original sentence for every word', () => {
+    const broken: string[] = []
+    for (const [position, word] of curriculum.entries()) {
+      const sentence = practiceSentence(toPractice(word, position + 1))
+      const rebuilt = sentence.blankDe.replace('_____', sentence.blankAnswer)
+      const blanks = sentence.blankDe.match(/_____/g) ?? []
+      if (rebuilt !== sentence.de || blanks.length !== 1 || sentence.blankAnswer.trim().length === 0) {
+        broken.push(`${word.lemma} => [${sentence.blankAnswer}] ${sentence.blankDe}`)
+      }
+    }
+    assert.deepEqual(broken, [])
   })
 })

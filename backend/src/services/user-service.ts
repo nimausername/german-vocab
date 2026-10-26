@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../db/client.js'
-import { userProfiles, type UserProfile } from '../db/schema.js'
+import { DEFAULT_DAILY_NEW_LIMIT, userProfiles, type UserProfile } from '../db/schema.js'
 
 type EnsureUserInput = {
   keycloakSub: string
@@ -43,6 +43,7 @@ export const ensureUserProfile = async (
       keycloakSub: input.keycloakSub,
       email: input.email,
       displayName: input.displayName,
+      dailyNewLimit: DEFAULT_DAILY_NEW_LIMIT,
     })
     .returning()
 

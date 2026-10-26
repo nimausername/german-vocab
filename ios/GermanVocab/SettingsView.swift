@@ -4,8 +4,8 @@ import UserNotifications
 struct SettingsView: View {
     @EnvironmentObject private var session: SessionStore
 
-    @State private var dailyNewLimit = 20
-    @State private var savedLimit = 20
+    @State private var dailyNewLimit = 8
+    @State private var savedLimit = 8
     @State private var limitReady = false
     @State private var isSavingLimit = false
     @State private var limitError: String?

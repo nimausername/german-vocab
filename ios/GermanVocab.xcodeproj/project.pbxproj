@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		06FD0874048454C95B401B68 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C61D3C87E7796086A5B20E2E /* APIClient.swift */; };
 		09DB79A39F5EE492DF2F9458 /* ClozeSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075E45E09857E534BDF2BEA8 /* ClozeSupport.swift */; };
+		8E7D6C5B4A39281706F5E4D3 /* GermanSpeaker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F8A1C2D6B9E4A07C3D5E1F2 /* GermanSpeaker.swift */; };
 		8D5F0B2C3E9A5B7F1D4C6E82 /* SentencePractice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C4E9A1B2D8F4A6E0C3B5D71 /* SentencePractice.swift */; };
 		111ABD4CDFF41A1B8CC30413 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8604458387A92E97258214B0 /* RootView.swift */; };
 		21217AA078FCE29BE46E51EE /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 983FDC34A422E4014DA43B69 /* Theme.swift */; };
@@ -67,6 +68,7 @@
 
 /* Begin PBXFileReference section */
 		075E45E09857E534BDF2BEA8 /* ClozeSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClozeSupport.swift; sourceTree = "<group>"; };
+		4F8A1C2D6B9E4A07C3D5E1F2 /* GermanSpeaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GermanSpeaker.swift; sourceTree = "<group>"; };
 		7C4E9A1B2D8F4A6E0C3B5D71 /* SentencePractice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentencePractice.swift; sourceTree = "<group>"; };
 		085FD54E9556B246A4BE83ED /* PhoneWatchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneWatchBridge.swift; sourceTree = "<group>"; };
 		10D98F322F9836FB412A02B1 /* WatchStudyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchStudyView.swift; sourceTree = "<group>"; };
@@ -136,6 +138,7 @@
 				7C4E9A1B2D8F4A6E0C3B5D71 /* SentencePractice.swift */,
 				13F1ED7C329A66340935EC08 /* Config.swift */,
 				5C2130118127DCD0F03E9C3E /* GermanVocabApp.swift */,
+				4F8A1C2D6B9E4A07C3D5E1F2 /* GermanSpeaker.swift */,
 				833466D1E80DDB1510777BE1 /* HandwritingRecognizer.swift */,
 				36DD9CBFC70F6FF85E98A65A /* Info.plist */,
 				866AECA1B91CAF666D2F0621 /* Interface.swift */,
@@ -264,6 +267,7 @@
 				8D5F0B2C3E9A5B7F1D4C6E82 /* SentencePractice.swift in Sources */,
 				5388AFBABBD184CF4D6A1646 /* Config.swift in Sources */,
 				88AEEA92B749433096F7AF2F /* GermanVocabApp.swift in Sources */,
+				8E7D6C5B4A39281706F5E4D3 /* GermanSpeaker.swift in Sources */,
 				9338C2C65668A2B0C6C8A716 /* HandwritingRecognizer.swift in Sources */,
 				5F9D36773281AB410C770FBD /* Interface.swift in Sources */,
 				E626F6238073FF76DBFF1F5E /* LoginView.swift in Sources */,

@@ -2,43 +2,51 @@ import PencilKit
 import SwiftUI
 
 private enum StudyStage: Int {
-    case writeWord = 0
-    case writeSentence = 1
-    case rate = 2
+    case situation = 0
+    case writeWord = 1
+    case writeBlank = 2
+    case rate = 3
 
-    func title(typing: Bool, intro: Bool) -> String {
+    func title(typing: Bool, revealed: Bool) -> String {
         switch self {
+        case .situation:
+            return revealed ? "New word" : "Read the sentence"
         case .writeWord:
-            if intro { return "New word" }
             return typing ? "Type the word" : "Write the word"
-        case .writeSentence:
-            return typing ? "Type the sentence" : "Write the sentence"
+        case .writeBlank:
+            return typing ? "Type the missing word" : "Write the missing word"
         case .rate:
             return "Rate this card"
         }
     }
 }
 
+private func openingStage(for item: StudyItem?) -> StudyStage {
+    guard let item else { return .writeBlank }
+    if item.isNew { return .situation }
+    if item.recallWord { return .writeWord }
+    return .writeBlank
+}
+
 struct StudyView: View {
     @EnvironmentObject private var session: SessionStore
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var queue: [StudyItem]
     @State private var initialCount: Int
-    @State private var stage: StudyStage = .writeWord
-    @State private var showingIntro: Bool
+    @State private var stage: StudyStage
+    @State private var meaningRevealed: Bool
 
     @StateObject private var wordCanvas = PencilCanvasStore()
-    @StateObject private var sentenceCanvas = PencilCanvasStore()
+    @StateObject private var blankCanvas = PencilCanvasStore()
+    @StateObject private var speaker = GermanSpeaker()
 
     @State private var recognizedWord = ""
-    @State private var recognizedSentence = ""
+    @State private var recognizedBlank = ""
     @State private var wordResult: ClozeResult?
-    @State private var sentenceResult: ClozeResult?
+    @State private var blankResult: ClozeResult?
     @State private var wordChecked = false
-    @State private var sentenceChecked = false
-    @State private var failedProduction = false
+    @State private var blankChecked = false
     @State private var isRecognizing = false
     @State private var typedAnswer = ""
     @State private var showTypeFallback = false
@@ -60,7 +68,8 @@ struct StudyView: View {
     init(initialQueue: [StudyItem]) {
         _queue = State(initialValue: initialQueue)
         _initialCount = State(initialValue: max(initialQueue.count, 1))
-        _showingIntro = State(initialValue: initialQueue.first?.isNew == true)
+        _stage = State(initialValue: openingStage(for: initialQueue.first))
+        _meaningRevealed = State(initialValue: false)
     }
 
     private var completed: Int {
@@ -69,6 +78,10 @@ struct StudyView: View {
 
     private var progress: Double {
         Double(completed) / Double(initialCount)
+    }
+
+    private var introSpeechID: String {
+        "\(queue.first?.cardId ?? "")-\(stage.rawValue)-\(meaningRevealed)"
     }
 
     var body: some View {
@@ -95,6 +108,13 @@ struct StudyView: View {
         }
         .animation(AppMotion.step, value: stage)
         .animation(AppMotion.step, value: queue.first?.cardId)
+        .onAppear { speaker.refresh() }
+        .onDisappear { speaker.stop() }
+        .task(id: introSpeechID) {
+            guard stage == .situation, let current = queue.first else { return }
+            let sentence = SentencePractice.resolve(current)
+            speaker.speak(meaningRevealed ? current.headwordWithArticle : sentence.german)
+        }
     }
 
     private func activeSession(_ current: StudyItem) -> some View {
@@ -114,10 +134,12 @@ struct StudyView: View {
 
                 Group {
                     switch stage {
+                    case .situation:
+                        situationStage(current)
                     case .writeWord:
-                        writeWordStage(current)
-                    case .writeSentence:
-                        writeSentenceStage(current)
+                        recallWordStage(current)
+                    case .writeBlank:
+                        blankStage(current)
                     case .rate:
                         rateStage(current)
                     }
@@ -140,9 +162,9 @@ struct StudyView: View {
             guard new, !old else { return nil }
             return feedback(for: wordResult)
         }
-        .sensoryFeedback(trigger: sentenceChecked) { old, new in
+        .sensoryFeedback(trigger: blankChecked) { old, new in
             guard new, !old else { return nil }
-            return feedback(for: sentenceResult)
+            return feedback(for: blankResult)
         }
         .sensoryFeedback(.selection, trigger: queue.count) { old, new in
             new < old
@@ -153,7 +175,16 @@ struct StudyView: View {
     }
 
     private func stages(for item: StudyItem) -> [StudyStage] {
-        item.writesSentence ? [.writeWord, .writeSentence, .rate] : [.writeWord, .rate]
+        var steps: [StudyStage] = []
+        if item.isNew {
+            steps.append(.situation)
+        }
+        if item.recallWord {
+            steps.append(.writeWord)
+        }
+        steps.append(.writeBlank)
+        steps.append(.rate)
+        return steps
     }
 
     private func stageTrack(for item: StudyItem) -> some View {
@@ -170,9 +201,9 @@ struct StudyView: View {
             .animation(AppMotion.step, value: stage)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Step \(currentIndex + 1) of \(steps.count)")
-            .accessibilityValue(stage.title(typing: typingIsPrimary, intro: showingIntro))
+            .accessibilityValue(stage.title(typing: typingIsPrimary, revealed: meaningRevealed))
 
-            Text(stage.title(typing: typingIsPrimary, intro: showingIntro))
+            Text(stage.title(typing: typingIsPrimary, revealed: meaningRevealed))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
         }
@@ -189,40 +220,52 @@ struct StudyView: View {
         }
     }
 
-    // MARK: - Stage 1: Write the word
+    // MARK: - Situation
 
-    @ViewBuilder
-    private func writeWordStage(_ current: StudyItem) -> some View {
-        if showingIntro {
-            introStage(current)
-        } else {
-            recallWordStage(current)
-        }
-    }
-
-    private func introStage(_ current: StudyItem) -> some View {
+    private func situationStage(_ current: StudyItem) -> some View {
         let sentence = SentencePractice.resolve(current)
         return VStack(spacing: 16) {
             kindLabel(current)
 
-            headword(current)
+            if meaningRevealed {
+                headword(current)
+                speakRow(text: current.headwordWithArticle, prominent: false)
 
-            Text(sentence.german)
-                .font(.title2.weight(.semibold))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
+                Text(sentence.german)
+                    .font(.title3.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
 
-            Text(sentence.english)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                Text(sentence.english)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
 
-            Text("Look once. Next you write the word, then this sentence.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                Text("Next you write the word, then fill it into this sentence.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                voiceNote()
+            } else {
+                Text(sentence.german)
+                    .font(.title2.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+
+                speakRow(text: sentence.german, prominent: false)
+
+                Text("What does this say?")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                voiceNote()
+            }
         }
     }
+
+    // MARK: - Write the word
 
     private func recallWordStage(_ current: StudyItem) -> some View {
         VStack(spacing: 16) {
@@ -260,51 +303,67 @@ struct StudyView: View {
                 )
                 .transition(.opacity.combined(with: .move(edge: .top)))
                 headword(current)
+                if speaker.premiumAvailable {
+                    speakRow(text: current.headwordWithArticle, prominent: false)
+                }
             }
         }
         .animation(AppMotion.reveal, value: wordChecked)
     }
 
-    // MARK: - Stage 2: Write the sentence
+    // MARK: - Blank
 
-    private func writeSentenceStage(_ current: StudyItem) -> some View {
+    private func blankStage(_ current: StudyItem) -> some View {
         let sentence = SentencePractice.resolve(current)
+        let prompt = ClozeSupport.blankPrompt(for: current)
 
         return VStack(spacing: 16) {
             Text(sentence.english)
-                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                .font(.title3)
+                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
 
-            Text(typingIsPrimary ? "Type the German sentence" : "Write the German sentence")
+            Text(prompt.blankedSentence)
+                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .accessibilityLabel("German sentence with a missing word")
+
+            Text(blankPrompt(for: prompt))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
             if !typingIsPrimary {
                 WritingPad(
-                    store: sentenceCanvas,
-                    isEnabled: !sentenceChecked && !isRecognizing,
+                    store: blankCanvas,
+                    isEnabled: !blankChecked && !isRecognizing,
                     prompt: "Writing pad"
                 )
             }
 
-            if showsTypingField && !sentenceChecked {
-                typeFallbackField(hint: "Type the German sentence") {
-                    Task { await checkSentenceWriting(for: current) }
+            if showsTypingField && !blankChecked {
+                typeFallbackField(hint: prompt.inputHint) {
+                    Task { await checkBlankWriting(for: current) }
                 }
             }
 
-            if sentenceChecked {
+            if blankChecked {
                 resultBlock(
-                    recognized: recognizedSentence,
-                    expected: sentence.german,
-                    result: sentenceResult
+                    recognized: recognizedBlank,
+                    expected: prompt.expected,
+                    result: blankResult
                 )
                 .transition(.opacity.combined(with: .move(edge: .top)))
+                if speaker.premiumAvailable {
+                    speakRow(text: sentence.german, prominent: false)
+                }
             }
+
+            voiceNote()
         }
-        .animation(AppMotion.reveal, value: sentenceChecked)
+        .animation(AppMotion.reveal, value: blankChecked)
     }
 
     private func typeFallbackField(hint: String, onSubmit: @escaping () -> Void) -> some View {
@@ -342,13 +401,25 @@ struct StudyView: View {
             : "Write article + word (e.g. die Frau)"
     }
 
-    // MARK: - Stage 3: Rate
+    private func blankPrompt(for prompt: ClozePrompt) -> String {
+        if typingIsPrimary {
+            return prompt.requiresArticle
+                ? "Type the missing word and its article"
+                : "Type the missing word"
+        }
+        return prompt.requiresArticle
+            ? "Write the missing word and its article"
+            : "Write the missing word"
+    }
+
+    // MARK: - Rate
 
     private func rateStage(_ current: StudyItem) -> some View {
         let sentence = SentencePractice.resolve(current)
         return VStack(spacing: 16) {
             kindLabel(current)
             headword(current)
+            speakRow(text: sentence.german, prominent: false)
 
             Text(current.glossEn)
                 .font(.title2)
@@ -366,17 +437,7 @@ struct StudyView: View {
             .padding(16)
             .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
 
-            if failedProduction {
-                Label(
-                    typingIsPrimary
-                        ? "Answer was off — consider Again or Hard"
-                        : "Writing was off — consider Again or Hard",
-                    systemImage: "exclamationmark.triangle.fill"
-                )
-                .font(.subheadline)
-                .foregroundStyle(.orange)
-                .multilineTextAlignment(.center)
-            }
+            voiceNote()
         }
     }
 
@@ -400,6 +461,31 @@ struct StudyView: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(current.headwordWithArticle)
+    }
+
+    @ViewBuilder
+    private func speakRow(text: String, prominent: Bool) -> some View {
+        if speaker.premiumAvailable {
+            Button {
+                speaker.speak(text)
+            } label: {
+                Label("Play", systemImage: "speaker.wave.2.fill")
+            }
+            .glassCapsule(size: prominent ? .large : .small)
+            .accessibilityLabel("Play German")
+            .accessibilityHint("Speaks the German with the Premium voice")
+        }
+    }
+
+    private func voiceNote() -> some View {
+        Group {
+            if !speaker.premiumAvailable {
+                Text("Download a Premium German voice to hear this. Settings → Accessibility → Spoken Content → Voices → German.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
     }
 
     @ViewBuilder
@@ -456,19 +542,34 @@ struct StudyView: View {
             }
 
             switch stage {
-            case .writeWord:
-                if showingIntro {
+            case .situation:
+                if meaningRevealed {
                     prominentButton("Write it") {
-                        withAnimation(AppMotion.step) { showingIntro = false }
-                    }
-                } else if wordChecked {
-                    prominentButton(current.writesSentence ? "Continue to Sentence" : "Continue") {
-                        wordCanvas.clear()
-                        sentenceCanvas.clear()
                         typedAnswer = ""
                         showTypeFallback = false
                         withAnimation(AppMotion.step) {
-                            stage = current.writesSentence ? .writeSentence : .rate
+                            stage = current.recallWord ? .writeWord : .writeBlank
+                        }
+                    }
+                } else {
+                    prominentButton("Show meaning") {
+                        withAnimation(AppMotion.step) { meaningRevealed = true }
+                    }
+                }
+
+            case .writeWord:
+                if wordChecked {
+                    if wordResult == .full {
+                        prominentButton("Continue") {
+                            wordCanvas.clear()
+                            blankCanvas.clear()
+                            typedAnswer = ""
+                            showTypeFallback = false
+                            withAnimation(AppMotion.step) { stage = .writeBlank }
+                        }
+                    } else {
+                        prominentButton("Next card") {
+                            Task { await submit(rating: .again, item: current) }
                         }
                     }
                 } else {
@@ -480,17 +581,23 @@ struct StudyView: View {
                     }
                 }
 
-            case .writeSentence:
-                if sentenceChecked {
-                    prominentButton("Continue") {
-                        withAnimation(AppMotion.step) { stage = .rate }
+            case .writeBlank:
+                if blankChecked {
+                    if blankResult == .full {
+                        prominentButton("Continue") {
+                            withAnimation(AppMotion.step) { stage = .rate }
+                        }
+                    } else {
+                        prominentButton("Next card") {
+                            Task { await submit(rating: .again, item: current) }
+                        }
                     }
                 } else {
                     checkControls(
                         title: checkTitle,
-                        canCheck: canCheckAnswer(hasStrokes: sentenceCanvas.hasStrokes)
+                        canCheck: canCheckAnswer(hasStrokes: blankCanvas.hasStrokes)
                     ) {
-                        Task { await checkSentenceWriting(for: current) }
+                        Task { await checkBlankWriting(for: current) }
                     }
                 }
 
@@ -498,6 +605,7 @@ struct StudyView: View {
                 ratingRow(for: current)
             }
         }
+        .disabled(isSubmitting)
     }
 
     private func prominentButton(_ title: String, action: @escaping () -> Void) -> some View {
@@ -584,20 +692,26 @@ struct StudyView: View {
         }
     }
 
-    private func checkSentenceWriting(for current: StudyItem) async {
+    private func checkBlankWriting(for current: StudyItem) async {
         errorMessage = nil
         isRecognizing = true
         defer { isRecognizing = false }
 
-        let sentence = SentencePractice.resolve(current)
+        let prompt = ClozeSupport.blankPrompt(for: current)
+        let expected = [
+            prompt.expected,
+            current.headwordWithArticle,
+            current.lemma,
+            current.displayNoun,
+        ]
 
         do {
             let recognition = try await recognitionResult(
-                drawing: sentenceCanvas.liveDrawing,
+                drawing: blankCanvas.liveDrawing,
                 typed: typedAnswer,
-                expected: [sentence.german]
+                expected: expected
             )
-            applySentenceResult(recognition, expected: sentence.german)
+            applyBlankResult(recognition, prompt: prompt, item: current)
         } catch {
             errorMessage = error.localizedDescription
             withAnimation(AppMotion.step) { showTypeFallback = true }
@@ -634,27 +748,25 @@ struct StudyView: View {
         )
         wordResult = result
         wordChecked = true
-        if result != .full {
-            failedProduction = true
-        }
+        speaker.speak(item.headwordWithArticle)
     }
 
-    private func applySentenceResult(
+    private func applyBlankResult(
         _ recognition: HandwritingRecognition,
-        expected: String
+        prompt: ClozePrompt,
+        item: StudyItem
     ) {
-        recognizedSentence = recognition.matchedExpected
+        recognizedBlank = recognition.matchedExpected
             ? "\(recognition.rawText) → \(recognition.resolvedText)"
             : recognition.rawText
-        let result = ClozeSupport.evaluateSentence(
+        let result = ClozeSupport.evaluateBlank(
             answer: recognition.resolvedText,
-            expected: expected
+            expected: prompt.expected,
+            item: item
         )
-        sentenceResult = result
-        sentenceChecked = true
-        if result != .full {
-            failedProduction = true
-        }
+        blankResult = result
+        blankChecked = true
+        speaker.speak(SentencePractice.resolve(item).german)
     }
 
     private var sessionComplete: some View {
@@ -686,30 +798,12 @@ struct StudyView: View {
 
     private func ratingRow(for item: StudyItem) -> some View {
         GlassEffectContainer(spacing: 10) {
-            Group {
-                if horizontalSizeClass == .compact {
-                    VStack(spacing: 10) {
-                        HStack(spacing: 10) {
-                            ratingButton("Again", tint: .red, rating: .again, item: item)
-                            ratingButton("Hard", tint: .orange, rating: .hard, item: item)
-                        }
-                        HStack(spacing: 10) {
-                            ratingButton("Good", tint: .blue, rating: .good, item: item)
-                            ratingButton("Easy", tint: .green, rating: .easy, item: item)
-                        }
-                    }
-                } else {
-                    HStack(spacing: 10) {
-                        ratingButton("Again", tint: .red, rating: .again, item: item)
-                        ratingButton("Hard", tint: .orange, rating: .hard, item: item)
-                        ratingButton("Good", tint: .blue, rating: .good, item: item)
-                        ratingButton("Easy", tint: .green, rating: .easy, item: item)
-                    }
-                }
+            HStack(spacing: 10) {
+                ratingButton("Good", tint: .blue, rating: .good, item: item)
+                ratingButton("Easy", tint: .green, rating: .easy, item: item)
             }
             .actionColumn()
         }
-        .disabled(isSubmitting)
     }
 
     private func ratingButton(
@@ -734,13 +828,12 @@ struct StudyView: View {
         errorMessage = nil
         defer { isSubmitting = false }
 
-        let finalRating: Rating = (failedProduction && rating == .easy) ? .good : rating
         let durationMs = Int(Date().timeIntervalSince(startedAt) * 1000)
 
         do {
             _ = try await session.submitReview(
                 cardId: item.cardId,
-                rating: finalRating,
+                rating: rating,
                 durationMs: durationMs
             )
             if !queue.isEmpty {
@@ -753,21 +846,22 @@ struct StudyView: View {
     }
 
     private func resetCardState() {
-        stage = .writeWord
-        showingIntro = queue.first?.isNew == true
+        let next = queue.first
+        stage = openingStage(for: next)
+        meaningRevealed = false
         wordCanvas.clear()
-        sentenceCanvas.clear()
+        blankCanvas.clear()
         recognizedWord = ""
-        recognizedSentence = ""
+        recognizedBlank = ""
         wordResult = nil
-        sentenceResult = nil
+        blankResult = nil
         wordChecked = false
-        sentenceChecked = false
-        failedProduction = false
+        blankChecked = false
         isRecognizing = false
         typedAnswer = ""
         showTypeFallback = false
         startedAt = Date()
         errorMessage = nil
+        speaker.stop()
     }
 }
