@@ -1,6 +1,7 @@
 import { and, asc, count, eq, ilike, isNull, or, sql, type SQL } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { cards, words, type UserProfile } from '../db/schema.js'
+import { practiceSentence } from './practice-sentence.js'
 
 export type WordListStatus = 'all' | 'learned' | 'new'
 
@@ -23,6 +24,8 @@ export type WordListItem = {
   cefrLevel: string
   exampleDe: string
   exampleEn: string
+  practiceDe: string
+  practiceEn: string
   sortOrder: number
   tags: string[]
   progress: {
@@ -33,6 +36,52 @@ export type WordListItem = {
     state: number | null
     due: string | null
     lastReview: string | null
+  }
+}
+
+const toWordListItem = (row: {
+  word: typeof words.$inferSelect
+  cardId: string | null
+  reps: number | null
+  lapses: number | null
+  state: number | null
+  due: Date | null
+  lastReview: Date | null
+}): WordListItem => {
+  const reps = row.reps ?? 0
+  const practice = practiceSentence({
+    lemma: row.word.lemma,
+    gender: row.word.gender,
+    plural: row.word.plural,
+    glossEn: row.word.glossEn,
+    tags: row.word.tags,
+    sortOrder: row.word.sortOrder,
+    exampleDe: row.word.exampleDe,
+    exampleEn: row.word.exampleEn,
+  })
+
+  return {
+    id: row.word.id,
+    lemma: row.word.lemma,
+    gender: row.word.gender,
+    plural: row.word.plural,
+    glossEn: row.word.glossEn,
+    cefrLevel: row.word.cefrLevel,
+    exampleDe: row.word.exampleDe,
+    exampleEn: row.word.exampleEn,
+    practiceDe: practice.de,
+    practiceEn: practice.en,
+    sortOrder: row.word.sortOrder,
+    tags: row.word.tags,
+    progress: {
+      learned: reps > 0,
+      cardId: row.cardId ?? null,
+      reps,
+      lapses: row.lapses ?? 0,
+      state: row.state ?? null,
+      due: row.due?.toISOString() ?? null,
+      lastReview: row.lastReview?.toISOString() ?? null,
+    },
   }
 }
 
@@ -96,30 +145,7 @@ export const listWords = async (query: WordListQuery) => {
     .limit(limit)
     .offset(offset)
 
-  const items: WordListItem[] = rows.map((row) => {
-    const reps = row.reps ?? 0
-    return {
-      id: row.word.id,
-      lemma: row.word.lemma,
-      gender: row.word.gender,
-      plural: row.word.plural,
-      glossEn: row.word.glossEn,
-      cefrLevel: row.word.cefrLevel,
-      exampleDe: row.word.exampleDe,
-      exampleEn: row.word.exampleEn,
-      sortOrder: row.word.sortOrder,
-      tags: row.word.tags,
-      progress: {
-        learned: reps > 0,
-        cardId: row.cardId ?? null,
-        reps,
-        lapses: row.lapses ?? 0,
-        state: row.state ?? null,
-        due: row.due?.toISOString() ?? null,
-        lastReview: row.lastReview?.toISOString() ?? null,
-      },
-    }
-  })
+  const items: WordListItem[] = rows.map((row) => toWordListItem(row))
 
   const total = totalRow?.value ?? 0
 
@@ -155,26 +181,5 @@ export const getWordById = async (user: UserProfile, wordId: string) => {
     return null
   }
 
-  const reps = row.reps ?? 0
-  return {
-    id: row.word.id,
-    lemma: row.word.lemma,
-    gender: row.word.gender,
-    plural: row.word.plural,
-    glossEn: row.word.glossEn,
-    cefrLevel: row.word.cefrLevel,
-    exampleDe: row.word.exampleDe,
-    exampleEn: row.word.exampleEn,
-    sortOrder: row.word.sortOrder,
-    tags: row.word.tags,
-    progress: {
-      learned: reps > 0,
-      cardId: row.cardId ?? null,
-      reps,
-      lapses: row.lapses ?? 0,
-      state: row.state ?? null,
-      due: row.due?.toISOString() ?? null,
-      lastReview: row.lastReview?.toISOString() ?? null,
-    },
-  } satisfies WordListItem
+  return toWordListItem(row)
 }

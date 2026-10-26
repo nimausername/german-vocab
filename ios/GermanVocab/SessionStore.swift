@@ -17,6 +17,8 @@ final class SessionStore: ObservableObject {
     private let client = APIClient()
     private let defaults = UserDefaults.standard
     private var flushTask: Task<Void, Never>?
+    /// One shared refresh so parallel 401s do not burn a rotated Keycloak refresh token.
+    private var refreshTask: Task<TokenPayload, Error>?
 
     private enum Keys {
         static let access = "accessToken"
@@ -69,16 +71,23 @@ final class SessionStore: ObservableObject {
     }
 
     func logout() {
+        clearLocalSession(syncWatch: true)
+    }
+
+    private func clearLocalSession(syncWatch: Bool) {
         let userId = cacheUserId
         accessToken = nil
         refreshToken = nil
         isAuthenticated = false
         isShowingCachedPlan = false
         pendingReviewCount = 0
+        refreshTask = nil
         defaults.removeObject(forKey: Keys.access)
         defaults.removeObject(forKey: Keys.refresh)
         OfflineStore.clearAll(userId: userId)
-        syncWatch()
+        if syncWatch {
+            PhoneWatchBridge.shared.push(accessToken: nil, refreshToken: nil)
+        }
     }
 
     func validAccessToken() async throws -> String {
@@ -93,12 +102,40 @@ final class SessionStore: ObservableObject {
             let token = try await validAccessToken()
             return try await operation(token)
         } catch APIClientError.unauthorized {
-            guard let refreshToken else { throw APIClientError.unauthorized }
-            let tokens = try await client.refresh(refreshToken: refreshToken)
-            persist(tokens)
-            guard let accessToken else { throw APIClientError.unauthorized }
-            return try await operation(accessToken)
+            do {
+                let tokens = try await refreshSession()
+                return try await operation(tokens.accessToken)
+            } catch {
+                if case APIClientError.unauthorized = error {
+                    clearLocalSession(syncWatch: true)
+                }
+                throw error
+            }
         }
+    }
+
+    /// Refreshes once for the whole app. Callers that hit 401 together share this task.
+    private func refreshSession() async throws -> TokenPayload {
+        if let refreshTask {
+            return try await refreshTask.value
+        }
+
+        let task = Task<TokenPayload, Error> { [weak self] in
+            guard let self else { throw APIClientError.unauthorized }
+            guard let refreshToken = self.refreshToken, !refreshToken.isEmpty else {
+                throw APIClientError.unauthorized
+            }
+            do {
+                let tokens = try await self.client.refresh(refreshToken: refreshToken)
+                self.persist(tokens)
+                return tokens
+            } catch {
+                throw error
+            }
+        }
+        refreshTask = task
+        defer { refreshTask = nil }
+        return try await task.value
     }
 
     func loadTodayPlan() async throws -> TodayPlan {
@@ -278,25 +315,18 @@ final class SessionStore: ObservableObject {
         PhoneWatchBridge.shared.push(accessToken: accessToken, refreshToken: refreshToken)
     }
 
-    /// Applies a session the watch refreshed, without sending it straight back.
+    /// Applies a session the watch refreshed.
+    ///
+    /// Empty tokens are ignored. The watch used to wipe the phone session when a
+    /// WatchConnectivity payload arrived without tokens (reminders, stale context).
     private func applyRemoteTokens(access: String, refresh: String) {
-        if access.isEmpty || refresh.isEmpty {
-            guard isAuthenticated else { return }
-            accessToken = nil
-            refreshToken = nil
-            isAuthenticated = false
-            defaults.removeObject(forKey: Keys.access)
-            defaults.removeObject(forKey: Keys.refresh)
-            PhoneWatchBridge.shared.push(accessToken: nil, refreshToken: nil)
-            return
-        }
+        guard !access.isEmpty, !refresh.isEmpty else { return }
         guard access != accessToken || refresh != refreshToken else { return }
         accessToken = access
         refreshToken = refresh
         isAuthenticated = true
         defaults.set(access, forKey: Keys.access)
         defaults.set(refresh, forKey: Keys.refresh)
-        PhoneWatchBridge.shared.push(accessToken: access, refreshToken: refresh)
         Task { await flushPendingReviews() }
     }
 }

@@ -78,54 +78,61 @@ struct TodayView: View {
             }
 
             Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(formattedDate(plan.planDate))
+                dailyGoalBlock(plan.dailyGoal)
+            }
+
+            if let pacingNote = plan.pacingNote {
+                Section {
+                    Label(pacingNote, systemImage: "gauge.with.dots.needle.67percent")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: "flame.fill")
+                        .font(.title3)
+                        .foregroundStyle(.orange)
+                        .symbolEffect(.bounce, value: plan.streak)
+                        .accessibilityHidden(true)
+
+                    Text("\(plan.streak)")
+                        .font(.title2.weight(.bold))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+
+                    Text(plan.streak == 1 ? "day streak" : "day streak")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
 
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Image(systemName: "flame.fill")
-                            .font(.title2)
-                            .foregroundStyle(.orange)
-                            .symbolEffect(.bounce, value: plan.streak)
-                            .accessibilityHidden(true)
+                    Spacer(minLength: 8)
 
-                        Text("\(plan.streak)")
-                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                            .monospacedDigit()
-                            .contentTransition(.numericText())
-
-                        Text("day streak")
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Text(plan.queue.isEmpty ? "You’re clear for today." : "Keep the chain alive.")
+                    Text(formattedDate(plan.planDate))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 4)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(streakLabel(plan))
+            } header: {
+                Text("Streak")
             }
 
             Section("Queue") {
-                MetricRow(title: "Reviews", value: "\(plan.reviewDue)", systemImage: "arrow.clockwise")
-                MetricRow(title: "New left", value: "\(plan.newRemaining)", systemImage: "sparkles")
-                MetricRow(title: "In this session", value: "\(plan.queue.count)", systemImage: "rectangle.stack")
-            }
-
-            Section("Session") {
-                if plan.queue.isEmpty {
-                    Label("Come back tomorrow for the next set.", systemImage: "sun.horizon")
-                        .foregroundStyle(.secondary)
-                } else {
-                    MetricRow(title: "Cards", value: "\(plan.queue.count)", systemImage: "square.stack")
+                MetricRow(title: "Reviews due", value: "\(plan.reviewDue)", systemImage: "arrow.clockwise")
+                MetricRow(title: "New today", value: "\(plan.newRemaining)", systemImage: "sparkles")
+                if plan.settingsNewLimit != plan.newLimit {
                     MetricRow(
-                        title: "About",
-                        value: "\(estimatedMinutes(plan.queue.count)) min",
-                        systemImage: "clock"
+                        title: "New limit",
+                        value: "\(plan.newLimit) of \(plan.settingsNewLimit)",
+                        systemImage: "gauge"
                     )
                 }
+                MetricRow(
+                    title: "About",
+                    value: plan.queue.isEmpty ? "—" : "\(estimatedMinutes(plan.queue.count)) min",
+                    systemImage: "clock"
+                )
             }
 
             if let errorMessage {
@@ -135,7 +142,7 @@ struct TodayView: View {
                 }
             }
         }
-        .animation(AppMotion.reveal, value: plan.streak)
+        .animation(AppMotion.reveal, value: plan.dailyGoal)
         .animation(AppMotion.reveal, value: plan.queue.count)
         .safeAreaBar(edge: .bottom) {
             if !plan.queue.isEmpty {
@@ -150,10 +157,65 @@ struct TodayView: View {
                     .actionColumn()
                     .matchedTransitionSource(id: "start-session", in: studyTransition)
                     .accessibilityLabel("Start session")
-                    .accessibilityHint("\(plan.queue.count) cards, about \(estimatedMinutes(plan.queue.count)) minutes")
+                    .accessibilityHint("\(plan.queue.count) cards left for today’s goal")
                 }
             }
         }
+    }
+
+    private func dailyGoalBlock(_ goal: DailyGoal) -> some View {
+        let progress = goal.total > 0 ? Double(goal.completed) / Double(goal.total) : 1
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(goalTitle(goal))
+                    .font(.title2.bold())
+                Spacer()
+                Text("\(goal.completed)/\(max(goal.total, goal.completed))")
+                    .font(.title3.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(AppTheme.accent)
+                    .contentTransition(.numericText())
+            }
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.primary.opacity(0.10))
+                    Capsule()
+                        .fill(AppTheme.accent)
+                        .frame(width: max(0, geometry.size.width * progress))
+                }
+            }
+            .frame(height: 8)
+            .animation(AppMotion.reveal, value: progress)
+
+            Text(goalSubtitle(goal))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(goalTitle(goal)). \(goal.completed) of \(goal.total) cards. \(goalSubtitle(goal))")
+    }
+
+    private func goalTitle(_ goal: DailyGoal) -> String {
+        if goal.total == 0 {
+            return "Nothing due"
+        }
+        return goal.met ? "Goal complete" : "Today’s goal"
+    }
+
+    private func goalSubtitle(_ goal: DailyGoal) -> String {
+        if goal.total == 0 {
+            return "Come back tomorrow for the next set."
+        }
+        if goal.met {
+            return "All due cards are done for today."
+        }
+        if goal.remaining == 1 {
+            return "1 card left to finish today’s reviews and new words."
+        }
+        return "\(goal.remaining) cards left to finish today’s reviews and new words."
     }
 
     private var offlineStatusRow: some View {
@@ -184,8 +246,7 @@ struct TodayView: View {
     }
 
     private func streakLabel(_ plan: TodayPlan) -> String {
-        let status = plan.queue.isEmpty ? "You’re clear for today." : "Keep the chain alive."
-        return "\(formattedDate(plan.planDate)). \(plan.streak) day streak. \(status)"
+        "\(formattedDate(plan.planDate)). \(plan.streak) day streak."
     }
 
     private func load() async {

@@ -81,8 +81,13 @@ final class PhoneWatchBridge: NSObject, WCSessionDelegate {
     }
 
     private func deliver(_ payload: [String: Any]) {
-        let access = payload[WatchSyncKey.access] as? String ?? ""
-        let refresh = payload[WatchSyncKey.refresh] as? String ?? ""
+        // Only accept real token updates. Missing keys used to become "" and sign the phone out.
+        guard let access = payload[WatchSyncKey.access] as? String,
+              let refresh = payload[WatchSyncKey.refresh] as? String,
+              !access.isEmpty,
+              !refresh.isEmpty else {
+            return
+        }
         DispatchQueue.main.async { [weak self] in
             self?.onRemoteTokens?(access, refresh)
         }

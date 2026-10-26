@@ -2,11 +2,12 @@ import SwiftUI
 
 struct WordDetailView: View {
     let word: LexiconWord
+    @StateObject private var speaker = GermanSpeaker()
 
     var body: some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .center, spacing: 8) {
                         ArticleText(article: word.article, prominent: true)
                         Text(word.cefrLevel)
@@ -18,7 +19,7 @@ struct WordDetailView: View {
                         Spacer(minLength: 8)
                         StatusChip(
                             title: word.progress.learned ? "Learned" : "New",
-                            tint: word.progress.learned ? .green : .orange,
+                            tint: word.progress.learned ? AppTheme.accent : .orange,
                             systemImage: word.progress.learned ? "checkmark" : "sparkle"
                         )
                     }
@@ -30,15 +31,43 @@ struct WordDetailView: View {
                     Text(word.glossEn)
                         .font(.title3)
                         .foregroundStyle(.secondary)
+
+                    SpeakGermanButton(speaker: speaker, text: word.headwordWithArticle, size: .regular)
                 }
                 .padding(.vertical, 4)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("\(word.headwordWithArticle), \(word.glossEn)")
             }
 
+            Section("Study sentence") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(word.practiceDe)
+                        .font(.body.weight(.semibold))
+                    Text(word.practiceEn)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    SpeakGermanButton(speaker: speaker, text: word.practiceDe, size: .small)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+            }
+
+            if word.exampleDe != word.practiceDe {
+                Section("Dictionary example") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(word.exampleDe)
+                            .font(.body.italic())
+                        Text(word.exampleEn)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+                }
+            }
+
             Section("Forms") {
-                MetricRow(title: "CEFR", value: word.cefrLevel, systemImage: "graduationcap")
-                if let plural = word.plural, !plural.isEmpty {
+                if let plural = word.plural, !plural.isEmpty, plural != "-" {
                     MetricRow(title: "Plural", value: plural, systemImage: "textformat")
                 }
                 if !word.tags.isEmpty {
@@ -46,27 +75,13 @@ struct WordDetailView: View {
                 }
             }
 
-            Section("Examples") {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(word.exampleDe)
-                        .font(.body.italic())
-                    Text(word.exampleEn)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 4)
-            }
-
-            Section("Your Progress") {
-                LabeledContent("Status") {
-                    Text(word.progress.learned ? "Learned" : "Not learned yet")
-                        .foregroundStyle(word.progress.learned ? Color.green : Color.orange)
-                }
+            Section("Your progress") {
                 MetricRow(title: "Reviews", value: "\(word.progress.reps)", systemImage: "arrow.clockwise")
                 MetricRow(title: "Lapses", value: "\(word.progress.lapses)", systemImage: "arrow.uturn.backward")
                 if let due = word.progress.due {
                     MetricRow(title: "Next due", value: formatDate(due), systemImage: "calendar")
+                } else {
+                    MetricRow(title: "Next due", value: "Not started", systemImage: "calendar")
                 }
                 if let last = word.progress.lastReview {
                     MetricRow(title: "Last review", value: formatDate(last), systemImage: "clock")
@@ -75,6 +90,7 @@ struct WordDetailView: View {
         }
         .navigationTitle(word.headwordWithArticle)
         .navigationBarTitleDisplayMode(.inline)
+        .onDisappear { speaker.stop() }
     }
 
     private func formatDate(_ iso: String) -> String {

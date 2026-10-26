@@ -123,47 +123,77 @@ struct StudyItem: Codable, Identifiable {
     }
 }
 
+struct DailyGoal: Codable, Equatable {
+    let completed: Int
+    let remaining: Int
+    let total: Int
+    let met: Bool
+}
+
 struct TodayPlan: Codable {
     let planDate: String
     let newLimit: Int
+    /// Settings value before review-pressure pacing. Missing on older servers.
+    let settingsNewLimit: Int
     let reviewDue: Int
     let newRemaining: Int
     let queue: [StudyItem]
     let streak: Int
     /// True after at least one review today. Missing on older servers.
     let studiedToday: Bool
+    let dailyGoal: DailyGoal
+    let pacingNote: String?
 
     enum CodingKeys: String, CodingKey {
-        case planDate, newLimit, reviewDue, newRemaining, queue, streak, studiedToday
+        case planDate, newLimit, settingsNewLimit, reviewDue, newRemaining
+        case queue, streak, studiedToday, dailyGoal, pacingNote
     }
 
     init(
         planDate: String,
         newLimit: Int,
+        settingsNewLimit: Int,
         reviewDue: Int,
         newRemaining: Int,
         queue: [StudyItem],
         streak: Int,
-        studiedToday: Bool
+        studiedToday: Bool,
+        dailyGoal: DailyGoal,
+        pacingNote: String?
     ) {
         self.planDate = planDate
         self.newLimit = newLimit
+        self.settingsNewLimit = settingsNewLimit
         self.reviewDue = reviewDue
         self.newRemaining = newRemaining
         self.queue = queue
         self.streak = streak
         self.studiedToday = studiedToday
+        self.dailyGoal = dailyGoal
+        self.pacingNote = pacingNote
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         planDate = try container.decode(String.self, forKey: .planDate)
         newLimit = try container.decode(Int.self, forKey: .newLimit)
+        settingsNewLimit = try container.decodeIfPresent(Int.self, forKey: .settingsNewLimit) ?? newLimit
         reviewDue = try container.decode(Int.self, forKey: .reviewDue)
         newRemaining = try container.decode(Int.self, forKey: .newRemaining)
         queue = try container.decode([StudyItem].self, forKey: .queue)
         streak = try container.decode(Int.self, forKey: .streak)
         studiedToday = try container.decodeIfPresent(Bool.self, forKey: .studiedToday) ?? false
+        if let goal = try container.decodeIfPresent(DailyGoal.self, forKey: .dailyGoal) {
+            dailyGoal = goal
+        } else {
+            dailyGoal = DailyGoal(
+                completed: 0,
+                remaining: queue.count,
+                total: queue.count,
+                met: queue.isEmpty
+            )
+        }
+        pacingNote = try container.decodeIfPresent(String.self, forKey: .pacingNote)
     }
 }
 
@@ -224,9 +254,34 @@ struct LexiconWord: Decodable, Identifiable, Hashable {
     let cefrLevel: String
     let exampleDe: String
     let exampleEn: String
+    /// Study sentence used in practice. Falls back to exampleDe on older servers.
+    let practiceDe: String
+    let practiceEn: String
     let sortOrder: Int
     let tags: [String]
     let progress: WordProgress
+
+    enum CodingKeys: String, CodingKey {
+        case id, lemma, gender, plural, glossEn, cefrLevel
+        case exampleDe, exampleEn, practiceDe, practiceEn, sortOrder, tags, progress
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        lemma = try container.decode(String.self, forKey: .lemma)
+        gender = try container.decodeIfPresent(String.self, forKey: .gender)
+        plural = try container.decodeIfPresent(String.self, forKey: .plural)
+        glossEn = try container.decode(String.self, forKey: .glossEn)
+        cefrLevel = try container.decode(String.self, forKey: .cefrLevel)
+        exampleDe = try container.decode(String.self, forKey: .exampleDe)
+        exampleEn = try container.decode(String.self, forKey: .exampleEn)
+        practiceDe = try container.decodeIfPresent(String.self, forKey: .practiceDe) ?? exampleDe
+        practiceEn = try container.decodeIfPresent(String.self, forKey: .practiceEn) ?? exampleEn
+        sortOrder = try container.decode(Int.self, forKey: .sortOrder)
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        progress = try container.decode(WordProgress.self, forKey: .progress)
+    }
 
     var article: String? {
         guard let gender else { return nil }

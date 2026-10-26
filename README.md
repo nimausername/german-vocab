@@ -9,7 +9,9 @@ The seed corpus is **4000 lemmas**, ordered so everyday sentences come first. Th
 - Native **SwiftUI** app for iPhone, iPad, and Apple Watch (no Expo). The iPhone and iPad app requires **iOS 26 or later** and uses Liquid Glass navigation, tabs, and controls. iPhone study is typed; iPad study uses Apple Pencil, with typing as a fallback. The watch shows the German word, then **Show meaning** and **Next**, without grading the card.
 - Reminders you can place through the day. Later ones mention the streak when today's session is still unfinished. Apple Watch shows them when the iPhone is locked.
 - In-app login via **Keycloak** (password grant; no browser redirect)
-- Daily plan: due reviews + limited new words
+- Daily plan: due reviews + limited new words, with a **today’s goal** progress bar for finishing that queue
+- Review-pressure pacing: when due reviews are busy (≥25) or heavy (≥40), new words are capped or paused for the day
+- Word detail: study sentence, Premium German audio, and review history (reps, next due)
 - Offline study: today’s plan is cached on device; reviews queue and sync when you’re back online
 - **FSRS** scheduling. A miss is saved as Again. A correct card is Good or Easy.
 - Stats: streak, words learned, reviews
@@ -54,6 +56,13 @@ Create a realm (e.g. `german-vocab`) and a **public** OpenID client with:
 - Direct access grants: **on**
 - Client ID matching `KEYCLOAK_CLIENT_ID`
 
+Session length lives in Keycloak, not only in the app. For daily study without constant re-login, in the realm set roughly:
+
+- **Access Token Lifespan**: 15–30 minutes (or keep 5 minutes; the app refreshes automatically)
+- **SSO Session Idle**: 7 days or more
+- **SSO Session Max**: 30 days or more
+- **Client → Advanced → Refresh Token Max Reuse**: leave refresh token rotation on; the app refreshes once at a time so parallel requests do not burn the token
+
 Create at least one user, then log in from the app.
 
 ### 3. iPhone or iPad app
@@ -88,15 +97,15 @@ Review ratings: `1=Again`, `2=Hard`, `3=Good`, `4=Easy`
 ## Learning model
 
 1. Words are ordered by `sortOrder` / CEFR.
-2. Each day: all **due** cards + up to **N** new words (default 8 for a new account, changeable in Settings from 1 to 50). An account that already chose a limit keeps it.
+2. Each day: all **due** cards + up to **N** new words (default 8 for a new account, changeable in Settings from 1 to 50). An account that already chose a limit keeps it. If reviews are busy (≥25 due), new words cap at 3; if heavy (≥40 due), new words pause. Today’s goal is finishing that mixed queue.
 3. A new word starts as a German sentence, played with the device’s Premium German voice when one is installed. The English stays hidden until you ask for it. You then write the word from the English, and fill that same word into the sentence. When a Premium voice is installed, blank practice is listen-first: the German line stays hidden until you ask to show it. Mature noun reviews also rotate in plural and article drills. A young review skips the first reveal and still does both writing steps. Once a review interval is a week or longer, the session is only that production step. A miss is saved as **Again**. **Good** and **Easy** are offered only after a correct answer.
 4. FSRS sets the next `due` time from that result.
 5. Progress is stored per Keycloak user in PostgreSQL.
 
 ## Roadmap
 
-- Offline cache
 - In-app registration via Keycloak Admin API
+- Watch study reminder polish and CSV/Anki-style export
 
 ## Contributing
 

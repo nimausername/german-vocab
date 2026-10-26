@@ -5,6 +5,12 @@ import { formatDateInTimezone } from '../lib/dates.js'
 import { newFsrsCard } from './fsrs-service.js'
 import { cardRecallsWord, practiceSentence } from './practice-sentence.js'
 
+/** Above this many due reviews, new words pause for the day. */
+const REVIEW_HEAVY = 40
+/** Above this many due reviews, new words are capped at a small number. */
+const REVIEW_BUSY = 25
+const BUSY_NEW_CAP = 3
+
 export type StudyItem = {
   cardId: string
   wordId: string
@@ -27,14 +33,27 @@ export type StudyItem = {
   due: string
 }
 
+export type DailyGoal = {
+  completed: number
+  remaining: number
+  total: number
+  met: boolean
+}
+
 export type TodayPlan = {
   planDate: string
+  /** Effective new-word slots after review-pressure pacing. */
   newLimit: number
+  /** The learner's Settings value, before pacing. */
+  settingsNewLimit: number
   reviewDue: number
   newRemaining: number
   queue: StudyItem[]
   streak: number
   studiedToday: boolean
+  dailyGoal: DailyGoal
+  /** Null when pacing did not change the new-word limit. */
+  pacingNote: string | null
 }
 
 type PlanWord = {
@@ -91,6 +110,31 @@ const toStudyItem = (word: PlanWord, card: PlanCard, kind: 'review' | 'new'): St
 }
 
 /**
+ * Shrinks or pauses new words when the review pile is large.
+ */
+export const pacedNewLimit = (
+  settingsLimit: number,
+  reviewDue: number,
+): { limit: number; note: string | null } => {
+  if (reviewDue >= REVIEW_HEAVY) {
+    return {
+      limit: 0,
+      note: 'Reviews are heavy today. New words pause until the pile shrinks.',
+    }
+  }
+  if (reviewDue >= REVIEW_BUSY) {
+    const limit = Math.min(settingsLimit, BUSY_NEW_CAP)
+    if (limit < settingsLimit) {
+      return {
+        limit,
+        note: `Reviews are busy. New words are capped at ${limit} today.`,
+      }
+    }
+  }
+  return { limit: settingsLimit, note: null }
+}
+
+/**
  * Builds today's study queue: due reviews first, then new words.
  */
 export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
@@ -115,7 +159,8 @@ export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
     .limit(1)
 
   const alreadyIntroducedToday = planRow?.newCount ?? 0
-  const newSlots = Math.max(0, user.dailyNewLimit - alreadyIntroducedToday)
+  const paced = pacedNewLimit(user.dailyNewLimit, dueCards.length)
+  const newSlots = Math.max(0, paced.limit - alreadyIntroducedToday)
 
   const newWordRows =
     newSlots === 0
@@ -170,6 +215,12 @@ export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
   }
 
   const introducedTotal = alreadyIntroducedToday + newItems.length
+  const completedNew = planRow?.completedNew ?? 0
+  const completedReview = planRow?.completedReview ?? 0
+  const queue = [...reviewItems, ...newItems]
+  const completedToday = completedNew + completedReview
+  const remaining = queue.length
+  const total = completedToday + remaining
 
   await db
     .insert(dailyPlans)
@@ -178,8 +229,8 @@ export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
       planDate,
       newCount: introducedTotal,
       reviewCount: reviewItems.length,
-      completedNew: planRow?.completedNew ?? 0,
-      completedReview: planRow?.completedReview ?? 0,
+      completedNew,
+      completedReview,
     })
     .onConflictDoUpdate({
       target: [dailyPlans.userId, dailyPlans.planDate],
@@ -191,11 +242,19 @@ export const getTodayPlan = async (user: UserProfile): Promise<TodayPlan> => {
 
   return {
     planDate,
-    newLimit: user.dailyNewLimit,
+    newLimit: paced.limit,
+    settingsNewLimit: user.dailyNewLimit,
     reviewDue: reviewItems.length,
-    newRemaining: Math.max(0, introducedTotal - (planRow?.completedNew ?? 0)),
-    queue: [...reviewItems, ...newItems],
+    newRemaining: Math.max(0, introducedTotal - completedNew),
+    queue,
     streak: user.streak,
     studiedToday: user.lastStudyDate === planDate,
+    dailyGoal: {
+      completed: completedToday,
+      remaining,
+      total,
+      met: remaining === 0,
+    },
+    pacingNote: paced.note,
   }
 }

@@ -85,14 +85,23 @@ enum OfflineStore {
         guard var plan = loadPlan(userId: userId, planDate: planDate) else { return }
         let remaining = plan.queue.filter { $0.cardId != cardId }
         guard remaining.count != plan.queue.count else { return }
+        let completed = plan.dailyGoal.completed + (plan.queue.count - remaining.count)
         plan = TodayPlan(
             planDate: plan.planDate,
             newLimit: plan.newLimit,
+            settingsNewLimit: plan.settingsNewLimit,
             reviewDue: plan.reviewDue,
             newRemaining: plan.newRemaining,
             queue: remaining,
             streak: plan.streak,
-            studiedToday: true
+            studiedToday: true,
+            dailyGoal: DailyGoal(
+                completed: completed,
+                remaining: remaining.count,
+                total: completed + remaining.count,
+                met: remaining.isEmpty
+            ),
+            pacingNote: plan.pacingNote
         )
         savePlan(plan, userId: userId)
     }

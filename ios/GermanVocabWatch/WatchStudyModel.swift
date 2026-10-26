@@ -128,9 +128,15 @@ final class WatchStudyModel: NSObject, ObservableObject {
                 clearSession()
                 throw APIClientError.unauthorized
             }
-            let tokens = try await client.refresh(refreshToken: refreshToken)
-            store(access: tokens.accessToken, refresh: tokens.refreshToken, tellPhone: true)
-            return try await operation(tokens.accessToken)
+            do {
+                let tokens = try await client.refresh(refreshToken: refreshToken)
+                store(access: tokens.accessToken, refresh: tokens.refreshToken, tellPhone: true)
+                return try await operation(tokens.accessToken)
+            } catch {
+                // Keep the phone signed in. Only clear the watch's local copy.
+                clearSession()
+                throw error
+            }
         }
     }
 

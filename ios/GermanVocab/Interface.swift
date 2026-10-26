@@ -20,6 +20,28 @@ struct BrandMark: View {
     }
 }
 
+/// Plays German with the Premium voice when one is installed.
+struct SpeakGermanButton: View {
+    @ObservedObject var speaker: GermanSpeaker
+    let text: String
+    var size: ControlSize = .small
+
+    var body: some View {
+        Group {
+            if speaker.premiumAvailable {
+                Button {
+                    speaker.speak(text)
+                } label: {
+                    Label("Play", systemImage: "speaker.wave.2.fill")
+                }
+                .glassCapsule(size: size)
+                .accessibilityLabel("Play German")
+            }
+        }
+        .onAppear { speaker.refresh() }
+    }
+}
+
 /// Full-screen loading state: spinner and status only.
 struct LoadingView: View {
     var message: String
