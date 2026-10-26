@@ -3,7 +3,12 @@ import { z } from 'zod'
 import { config } from '../config.js'
 import { AppError } from '../lib/errors.js'
 import { withKeycloakClient } from '../lib/keycloak-form.js'
-import { createKeycloakUser, isRegistrationEnabled } from '../services/keycloak-admin.js'
+import {
+  createKeycloakUser,
+  isAccountNotFullySetUp,
+  isRegistrationEnabled,
+  prepareUserForLogin,
+} from '../services/keycloak-admin.js'
 
 const loginSchema = z.object({
   username: z.string().min(1),
@@ -62,6 +67,27 @@ const passwordGrant = async (username: string, password: string): Promise<TokenJ
   return data
 }
 
+/**
+ * Password grant with one repair attempt when Keycloak blocks incomplete profiles.
+ */
+const passwordGrantWithRepair = async (
+  username: string,
+  password: string,
+): Promise<TokenJson> => {
+  try {
+    return await passwordGrant(username, password)
+  } catch (error) {
+    if (!(error instanceof AppError) || !isAccountNotFullySetUp(error.message)) {
+      throw error
+    }
+    const repaired = await prepareUserForLogin(username)
+    if (!repaired) {
+      throw error
+    }
+    return passwordGrant(username, password)
+  }
+}
+
 const tokenPayload = (data: TokenJson, requestId: string) => ({
   data: {
     accessToken: data.access_token,
@@ -80,7 +106,7 @@ export const authRoutes = new Hono<{ Variables: AuthRouteVariables }>()
  */
 authRoutes.post('/login', async (c) => {
   const body = loginSchema.parse(await c.req.json())
-  const data = await passwordGrant(body.username, body.password)
+  const data = await passwordGrantWithRepair(body.username, body.password)
   return c.json(tokenPayload(data, c.get('requestId')))
 })
 
@@ -105,15 +131,15 @@ authRoutes.post('/register', async (c) => {
   })
 
   try {
-    const data = await passwordGrant(body.username, body.password)
+    const data = await passwordGrantWithRepair(body.username, body.password)
     return c.json(tokenPayload(data, c.get('requestId')), 201)
   } catch (error) {
-    // User exists; do not return 401 (the app treats that as “session expired”).
+    // User exists; do not return bare 401 (the app used to show “sign in again”).
     if (error instanceof AppError) {
       throw new AppError(
         409,
         'ACCOUNT_CREATED',
-        'Account created. Switch to Sign In and use the same password.',
+        `Account created, but sign-in failed: ${error.message}`,
       )
     }
     throw error

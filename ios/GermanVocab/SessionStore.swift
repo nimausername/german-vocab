@@ -85,7 +85,7 @@ final class SessionStore: ObservableObject {
             await flushPendingReviews()
         } catch {
             // Account already exists from a partial earlier attempt — sign in instead.
-            if case APIClientError.server(let code, _) = error,
+            if case APIClientError.server(let code, let message) = error,
                code == "USERNAME_TAKEN" || code == "ACCOUNT_CREATED" {
                 do {
                     let tokens = try await client.login(username: username, password: password)
@@ -93,7 +93,10 @@ final class SessionStore: ObservableObject {
                     await flushPendingReviews()
                     return
                 } catch {
-                    errorMessage = "Account exists. Check the password, then use Sign In."
+                    // Keep the real reason visible (e.g. Keycloak profile incomplete).
+                    errorMessage = error.localizedDescription.isEmpty
+                        ? message
+                        : error.localizedDescription
                     return
                 }
             }

@@ -7,6 +7,18 @@ type TokenResponse = {
   error_description?: string
 }
 
+type KeycloakUser = {
+  id?: string
+  username?: string
+  email?: string
+  firstName?: string
+  lastName?: string
+  enabled?: boolean
+  emailVerified?: boolean
+  requiredActions?: string[]
+  attributes?: Record<string, unknown>
+}
+
 type CreateUserInput = {
   username: string
   password: string
@@ -60,7 +72,10 @@ const userIdFromLocation = (location: string | null): string | null => {
   return parts.at(-1) ?? null
 }
 
-const findUserIdByUsername = async (token: string, username: string): Promise<string | null> => {
+const findUserByUsername = async (
+  token: string,
+  username: string,
+): Promise<KeycloakUser | null> => {
   const url = new URL(`${realmAdminBase()}/users`)
   url.searchParams.set('username', username)
   url.searchParams.set('exact', 'true')
@@ -68,8 +83,16 @@ const findUserIdByUsername = async (token: string, username: string): Promise<st
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!response.ok) return null
-  const users = (await response.json()) as Array<{ id?: string }>
-  return users[0]?.id ?? null
+  const users = (await response.json()) as KeycloakUser[]
+  return users[0] ?? null
+}
+
+const getUser = async (token: string, userId: string): Promise<KeycloakUser | null> => {
+  const response = await fetch(`${realmAdminBase()}/users/${userId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!response.ok) return null
+  return (await response.json()) as KeycloakUser
 }
 
 const setPassword = async (token: string, userId: string, password: string): Promise<void> => {
@@ -95,39 +118,82 @@ const setPassword = async (token: string, userId: string, password: string): Pro
   }
 }
 
-const clearRequiredActions = async (token: string, userId: string): Promise<void> => {
-  const getResponse = await fetch(`${realmAdminBase()}/users/${userId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!getResponse.ok) return
+/**
+ * Clears required actions and fills profile fields Keycloak user-profile
+ * often marks as required (first/last name), which otherwise blocks password grant
+ * with "Account is not fully set up".
+ */
+const finalizeUserRecord = async (
+  token: string,
+  user: KeycloakUser,
+  username: string,
+  email?: string,
+): Promise<void> => {
+  if (!user.id) {
+    throw new AppError(502, 'REGISTER_FAILED', 'Keycloak user id missing.')
+  }
 
-  const existing = (await getResponse.json()) as Record<string, unknown>
-  const response = await fetch(`${realmAdminBase()}/users/${userId}`, {
+  const payload: KeycloakUser = {
+    id: user.id,
+    username: user.username ?? username,
+    email: email ?? user.email ?? undefined,
+    firstName: user.firstName?.trim() || username,
+    lastName: user.lastName?.trim() || username,
+    attributes: user.attributes,
+    enabled: true,
+    emailVerified: true,
+    requiredActions: [],
+  }
+
+  const response = await fetch(`${realmAdminBase()}/users/${user.id}`, {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      id: existing.id,
-      username: existing.username,
-      email: existing.email,
-      firstName: existing.firstName,
-      lastName: existing.lastName,
-      attributes: existing.attributes,
-      enabled: true,
-      emailVerified: true,
-      requiredActions: [],
-    }),
+    body: JSON.stringify(payload),
   })
-  // Non-fatal: password grant may still work without this.
+
   if (!response.ok) {
-    console.warn('Could not clear Keycloak requiredActions for', userId, response.status)
+    const text = await response.text()
+    throw new AppError(
+      502,
+      'REGISTER_FAILED',
+      text.trim() || 'Could not finish setting up the account in Keycloak.',
+    )
+  }
+
+  const refreshed = await getUser(token, user.id)
+  const remaining = refreshed?.requiredActions ?? []
+  if (remaining.length > 0) {
+    throw new AppError(
+      502,
+      'REGISTER_FAILED',
+      `Account still has required Keycloak actions: ${remaining.join(', ')}.`,
+    )
   }
 }
 
 /**
- * Creates a Keycloak user, sets a permanent password, and clears blocking actions.
+ * Repairs an existing user so password grant can succeed (clears required actions
+ * and fills required profile fields). Does not change the password.
+ */
+export const prepareUserForLogin = async (username: string): Promise<boolean> => {
+  if (!hasKeycloakClientSecret()) return false
+  try {
+    const token = await adminAccessToken()
+    const user = await findUserByUsername(token, username)
+    if (!user?.id) return false
+    await finalizeUserRecord(token, user, username)
+    return true
+  } catch (error) {
+    console.warn('prepareUserForLogin failed', username, error)
+    return false
+  }
+}
+
+/**
+ * Creates a Keycloak user, sets a permanent password, and finishes profile setup.
  */
 export const createKeycloakUser = async (input: CreateUserInput): Promise<void> => {
   const token = await adminAccessToken()
@@ -135,7 +201,8 @@ export const createKeycloakUser = async (input: CreateUserInput): Promise<void> 
     username: input.username,
     enabled: true,
     email: input.email,
-    // Always mark verified for API-created accounts so password grant is not blocked.
+    firstName: input.username,
+    lastName: input.username,
     emailVerified: true,
     requiredActions: [] as string[],
   }
@@ -167,7 +234,7 @@ export const createKeycloakUser = async (input: CreateUserInput): Promise<void> 
 
   const userId =
     userIdFromLocation(response.headers.get('location')) ??
-    (await findUserIdByUsername(token, input.username))
+    (await findUserByUsername(token, input.username))?.id
 
   if (!userId) {
     throw new AppError(
@@ -178,7 +245,12 @@ export const createKeycloakUser = async (input: CreateUserInput): Promise<void> 
   }
 
   await setPassword(token, userId, input.password)
-  await clearRequiredActions(token, userId)
+
+  const created = (await getUser(token, userId)) ?? { id: userId, username: input.username }
+  await finalizeUserRecord(token, created, input.username, input.email)
 }
 
 export const isRegistrationEnabled = hasKeycloakClientSecret
+
+export const isAccountNotFullySetUp = (message: string): boolean =>
+  message.toLowerCase().includes('not fully set up')
