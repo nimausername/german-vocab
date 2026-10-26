@@ -209,6 +209,17 @@ struct DailyLimitUpdate: Decodable {
     let dailyNewLimit: Int
 }
 
+enum ProgressExportFormat: String {
+    case csv
+    case anki
+}
+
+struct ProgressExportPayload: Decodable {
+    let filename: String
+    let mimeType: String
+    let content: String
+}
+
 struct UserStats: Decodable {
     let streak: Int
     let dailyNewLimit: Int

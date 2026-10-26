@@ -12,7 +12,7 @@
     "start": "node dist/index.js",
     "start:dev": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/services/practice-sentence.test.ts src/services/plan-service.test.ts",
+    "test": "tsx --test src/services/*.test.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/scripts/seed.ts",
     "db:setup": "pnpm db:push && pnpm db:seed",

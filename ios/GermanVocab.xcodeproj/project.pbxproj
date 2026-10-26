@@ -42,6 +42,7 @@
 		EE19EFCD33AE31B23FD8C694 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1B29F73ECE29971DA5B0CBD7 /* Assets.xcassets */; };
 		FE08793E1F076FD151746208 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71F07513DCA499AAA60D78CD /* SettingsView.swift */; };
 		FE99599D3C77AC56A4F780D3 /* GermanVocabWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 44308B8B467832950F6D47F9 /* GermanVocabWatch.app */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A7E8F9B0C1D2E3F405162738 /* ExportShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8C9D0E1F2A3041526374859 /* ExportShare.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -101,6 +102,7 @@
 		F2F064B04BB9B457CF72556B /* PencilCanvasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PencilCanvasView.swift; sourceTree = "<group>"; };
 		F2F71343D54EA88FC5E4C6B9 /* GermanVocab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GermanVocab.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8B5CF8C5B3C550D483945C /* WordDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WordDetailView.swift; sourceTree = "<group>"; };
+		B8C9D0E1F2A3041526374859 /* ExportShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportShare.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -147,6 +149,7 @@
 				36DD9CBFC70F6FF85E98A65A /* Info.plist */,
 				866AECA1B91CAF666D2F0621 /* Interface.swift */,
 				BF88CE9F90D276253F5F0FAF /* LoginView.swift */,
+				B8C9D0E1F2A3041526374859 /* ExportShare.swift */,
 				5574A69AD2A82F1397E5D276 /* Models.swift */,
 				B2C3D4E5F60718293A4B5C6D /* NetworkMonitor.swift */,
 				D4E5F60718293A4B5C6D7E8F /* OfflineStore.swift */,
@@ -279,6 +282,7 @@
 				9338C2C65668A2B0C6C8A716 /* HandwritingRecognizer.swift in Sources */,
 				5F9D36773281AB410C770FBD /* Interface.swift in Sources */,
 				E626F6238073FF76DBFF1F5E /* LoginView.swift in Sources */,
+				A7E8F9B0C1D2E3F405162738 /* ExportShare.swift in Sources */,
 				561AB8A7825E85FE34A18E5B /* Models.swift in Sources */,
 				43E525BF9853B95A1262FCF0 /* PencilCanvasView.swift in Sources */,
 				8A995F7673E329D663ED86F6 /* PhoneWatchBridge.swift in Sources */,

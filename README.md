@@ -8,11 +8,13 @@ The seed corpus is **4000 lemmas**, ordered so everyday sentences come first. Th
 
 - Native **SwiftUI** app for iPhone, iPad, and Apple Watch (no Expo). The iPhone and iPad app requires **iOS 26 or later** and uses Liquid Glass navigation, tabs, and controls. iPhone study is typed; iPad study uses Apple Pencil, with typing as a fallback. The watch shows the German word, then **Show meaning** and **Next**, without grading the card.
 - Reminders you can place through the day. Later ones mention the streak when today's session is still unfinished. Apple Watch shows them when the iPhone is locked.
-- In-app login via **Keycloak** (password grant; no browser redirect)
+- In-app login and **Create Account** via **Keycloak** (password grant + Admin API registration; no browser redirect)
 - Daily plan: due reviews + limited new words, with a **today’s goal** progress bar for finishing that queue
 - Review-pressure pacing: when due reviews are busy (≥25) or heavy (≥40), new words are capped or paused for the day
 - Word detail: study sentence, Premium German audio, and review history (reps, next due)
 - Offline study: today’s plan is cached on device; reviews queue and sync when you’re back online
+- Study reminders on iPhone/iPad and Apple Watch; later reminders mention the streak when today’s goal is still open
+- Progress export: CSV backup or Anki-importable tab-separated notes from Settings
 - **FSRS** scheduling. A miss is saved as Again. A correct card is Good or Easy.
 - Stats: streak, words learned, reviews
 - Docker / **Coolify**-ready backend
@@ -50,11 +52,16 @@ API: `http://localhost:3080` — health check: `GET /health`
 
 ### 2. Keycloak
 
-Create a realm (e.g. `german-vocab`) and a **public** OpenID client with:
+Create a realm (e.g. `german-vocab`) and one **confidential** OpenID client (e.g. `german-vocab-app`) with:
 
-- Standard flow: off (for in-app login)
-- Direct access grants: **on**
-- Client ID matching `KEYCLOAK_CLIENT_ID`
+- Client authentication: **On**
+- Standard flow: **Off**
+- Direct access grants: **On** (Sign In)
+- Service accounts: **On** (Create Account)
+- Service account roles: `realm-management` → `manage-users`
+- Copy the client secret into `KEYCLOAK_CLIENT_SECRET` on the API (never in the iOS app)
+
+The phone only talks to your API. The API holds the secret and proxies login, refresh, and registration. Without `KEYCLOAK_CLIENT_SECRET`, login may still work for a public client; Create Account returns `REGISTER_DISABLED`.
 
 Session length lives in Keycloak, not only in the app. For daily study without constant re-login, in the realm set roughly:
 
@@ -86,11 +93,13 @@ After deploy, point `Config.swift` at your HTTPS API URL and rebuild the app.
 |---|---|---|
 | GET | `/health` | no |
 | POST | `/v1/auth/login` | no |
+| POST | `/v1/auth/register` | no |
 | POST | `/v1/auth/refresh` | no |
 | GET | `/v1/plans/today` | Bearer |
 | POST | `/v1/reviews` | Bearer |
 | GET | `/v1/stats` | Bearer |
 | PATCH | `/v1/settings` | Bearer |
+| GET | `/v1/exports/progress?format=csv\|anki` | Bearer |
 
 Review ratings: `1=Again`, `2=Hard`, `3=Good`, `4=Easy`
 
@@ -104,8 +113,8 @@ Review ratings: `1=Again`, `2=Hard`, `3=Good`, `4=Easy`
 
 ## Roadmap
 
-- In-app registration via Keycloak Admin API
-- Watch study reminder polish and CSV/Anki-style export
+- Shared family / classroom accounts
+- Optional browser-based OIDC for web clients
 
 ## Contributing
 

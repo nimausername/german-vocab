@@ -263,11 +263,11 @@ struct TodayView: View {
                 WatchPlanStamp.make(planDate: loadedPlan.planDate, queue: loadedPlan.queue)
             )
             let studied = loadedPlan.studiedToday || (stats?.reviewsToday ?? 0) > 0
-            ReminderContext(
-                streak: loadedPlan.streak,
-                studiedToday: studied,
-                wordCount: loadedPlan.queue.count
-            ).save()
+            var reminder = ReminderContext.from(plan: loadedPlan)
+            if studied {
+                reminder.studiedToday = true
+            }
+            reminder.save()
             await StudyNotificationScheduler.reschedule()
             PhoneWatchBridge.shared.syncReminders()
         } catch {

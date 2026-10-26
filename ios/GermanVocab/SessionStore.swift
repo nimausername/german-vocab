@@ -70,6 +70,24 @@ final class SessionStore: ObservableObject {
         }
     }
 
+    func register(username: String, password: String, email: String?) async {
+        isBusy = true
+        errorMessage = nil
+        defer { isBusy = false }
+
+        do {
+            let tokens = try await client.register(
+                username: username,
+                password: password,
+                email: email
+            )
+            persist(tokens)
+            await flushPendingReviews()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func logout() {
         clearLocalSession(syncWatch: true)
     }
@@ -287,6 +305,12 @@ final class SessionStore: ObservableObject {
     func loadWord(id: String) async throws -> LexiconWord {
         try await withAuthRetry { token in
             try await client.word(token: token, id: id)
+        }
+    }
+
+    func exportProgress(format: ProgressExportFormat) async throws -> ProgressExportPayload {
+        try await withAuthRetry { token in
+            try await client.exportProgress(token: token, format: format)
         }
     }
 

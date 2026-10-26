@@ -159,6 +159,7 @@ final class PhoneWatchBridge: NSObject, WCSessionDelegate {
             WatchSyncKey.reminderStreak: String(reminder.streak),
             WatchSyncKey.reminderStudied: reminder.studiedToday ? "1" : "0",
             WatchSyncKey.reminderWords: String(reminder.wordCount),
+            WatchSyncKey.reminderGoal: String(reminder.goalRemaining),
         ]
     }
 }

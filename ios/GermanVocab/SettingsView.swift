@@ -13,6 +13,9 @@ struct SettingsView: View {
     @State private var preferences = ReminderPreferences.load()
     @State private var notificationsDenied = false
     @State private var reminderStatus: String?
+    @State private var isExporting = false
+    @State private var exportError: String?
+    @State private var exportShare: ExportShareItem?
 
     var body: some View {
         NavigationStack {
@@ -110,6 +113,41 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Button {
+                        Task { await exportProgress(format: .csv) }
+                    } label: {
+                        Label("Export CSV", systemImage: "tablecells")
+                    }
+                    .disabled(isExporting)
+
+                    Button {
+                        Task { await exportProgress(format: .anki) }
+                    } label: {
+                        Label("Export Anki deck", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(isExporting)
+
+                    if isExporting {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                            Text("Preparing export")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    if let exportError {
+                        Text(exportError)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                } header: {
+                    Text("Backup")
+                } footer: {
+                    Text("CSV keeps full progress fields. Anki is a tab-separated file you can import as notes (German → English).")
+                }
+
+                Section {
                     LabeledContent {
                         Text(AppConfig.apiBaseURL.absoluteString)
                             .foregroundStyle(.secondary)
@@ -153,6 +191,9 @@ struct SettingsView: View {
                     PhoneWatchBridge.shared.syncReminders()
                     await refreshNotificationStatus()
                 }
+            }
+            .sheet(item: $exportShare) { item in
+                ActivityShareView(items: [item.url])
             }
         }
     }
@@ -201,13 +242,27 @@ struct SettingsView: View {
     }
 
     private var reminderFooter: String {
-        let schedule = "Reminders repeat every day between the first and last time. From 17:00, a reminder mentions your streak when today's session is still unfinished."
+        let schedule = "Reminders repeat every day between the first and last time. Later reminders mention your streak when today’s goal is still open. The Apple Watch schedules the same alerts so they still show when the iPhone is locked."
         guard preferences.enabled, let next = StudyNotificationScheduler.nextFireDate() else {
             return schedule
         }
         let time = next.formatted(date: .omitted, time: .shortened)
         let when = Calendar.current.isDateInToday(next) ? "today" : "tomorrow"
         return "Next reminder \(when) at \(time). \(schedule)"
+    }
+
+    private func exportProgress(format: ProgressExportFormat) async {
+        isExporting = true
+        exportError = nil
+        defer { isExporting = false }
+        do {
+            let payload = try await session.exportProgress(format: format)
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(payload.filename)
+            try payload.content.write(to: url, atomically: true, encoding: .utf8)
+            exportShare = ExportShareItem(url: url)
+        } catch {
+            exportError = error.localizedDescription
+        }
     }
 
     private func sendTestReminder() async {

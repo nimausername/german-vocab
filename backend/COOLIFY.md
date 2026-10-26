@@ -22,10 +22,13 @@ HOST=0.0.0.0
 KEYCLOAK_ISSUER=https://auth.nimakhabbazi.de/realms/german-vocab
 KEYCLOAK_CLIENT_ID=german-vocab-app
 KEYCLOAK_TOKEN_URL=https://auth.nimakhabbazi.de/realms/german-vocab/protocol/openid-connect/token
+KEYCLOAK_CLIENT_SECRET=replace-me
 CORS_ORIGIN=*
 ```
 
 Notes:
+
+- One Keycloak client. `KEYCLOAK_CLIENT_SECRET` enables login/refresh as confidential and `POST /v1/auth/register` via the service account (`manage-users`).
 
 - Coolify often injects `PORT` itself — keep the app reading `PORT` (already does).
 - Postgres must allow connections from the Coolify server IP.

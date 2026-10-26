@@ -89,11 +89,7 @@ final class WatchStudyModel: NSObject, ObservableObject {
             lastSeenPhoneStamp = stampAtStart
             persistCache()
             errorMessage = nil
-            ReminderContext(
-                streak: fetched.streak,
-                studiedToday: fetched.studiedToday,
-                wordCount: fetched.queue.count
-            ).save()
+            ReminderContext.from(plan: fetched).save()
             await StudyNotificationScheduler.reschedule()
         }
 

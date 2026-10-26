@@ -61,16 +61,48 @@ struct ReminderPreferences: Equatable, Codable {
 struct ReminderContext: Equatable, Codable {
     var streak: Int
     var studiedToday: Bool
+    /// Cards still in today's queue (same as goal remaining when the plan is fresh).
     var wordCount: Int
+    /// Cards left for today's goal. Falls back to `wordCount` on older payloads.
+    var goalRemaining: Int
 
     private static let storageKey = "reminderContext"
 
     static func load() -> ReminderContext {
         guard let data = UserDefaults.standard.data(forKey: storageKey),
               let stored = try? JSONDecoder().decode(ReminderContext.self, from: data) else {
-            return ReminderContext(streak: 0, studiedToday: false, wordCount: 0)
+            return ReminderContext(streak: 0, studiedToday: false, wordCount: 0, goalRemaining: 0)
         }
         return stored
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case streak, studiedToday, wordCount, goalRemaining
+    }
+
+    init(streak: Int, studiedToday: Bool, wordCount: Int, goalRemaining: Int? = nil) {
+        self.streak = streak
+        self.studiedToday = studiedToday
+        self.wordCount = wordCount
+        self.goalRemaining = goalRemaining ?? wordCount
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        streak = try container.decode(Int.self, forKey: .streak)
+        studiedToday = try container.decode(Bool.self, forKey: .studiedToday)
+        wordCount = try container.decode(Int.self, forKey: .wordCount)
+        goalRemaining = try container.decodeIfPresent(Int.self, forKey: .goalRemaining) ?? wordCount
+    }
+
+    /// Builds a reminder snapshot from today's plan.
+    static func from(plan: TodayPlan) -> ReminderContext {
+        ReminderContext(
+            streak: plan.streak,
+            studiedToday: plan.studiedToday || plan.dailyGoal.met,
+            wordCount: plan.queue.count,
+            goalRemaining: plan.dailyGoal.remaining
+        )
     }
 
     func save() {
@@ -79,7 +111,7 @@ struct ReminderContext: Equatable, Codable {
     }
 }
 
-/// Repeating local reminders. Each device schedules its own, so the watch alerts even when the iPhone is unlocked.
+/// Repeating local reminders. Each device schedules its own, so the watch alerts even when the iPhone is locked.
 @MainActor
 enum StudyNotificationScheduler {
     private static let legacyID = "daily-study"
@@ -101,10 +133,13 @@ enum StudyNotificationScheduler {
         preferences.save()
 
         if payload[WatchSyncKey.reminderStreak] != nil {
+            let words = Int(payload[WatchSyncKey.reminderWords] as? String ?? "") ?? 0
+            let goal = Int(payload[WatchSyncKey.reminderGoal] as? String ?? "") ?? words
             ReminderContext(
                 streak: Int(payload[WatchSyncKey.reminderStreak] as? String ?? "") ?? 0,
                 studiedToday: (payload[WatchSyncKey.reminderStudied] as? String) == "1",
-                wordCount: Int(payload[WatchSyncKey.reminderWords] as? String ?? "") ?? 0
+                wordCount: words,
+                goalRemaining: goal
             ).save()
         }
         await reschedule()
@@ -123,14 +158,17 @@ enum StudyNotificationScheduler {
         }
 
         let context = ReminderContext.load()
-        for (index, minutes) in preferences.reminderMinutes().enumerated() {
+        let minutes = preferences.reminderMinutes()
+        for (index, minute) in minutes.enumerated() {
             var parts = DateComponents()
-            parts.hour = minutes / 60
-            parts.minute = minutes % 60
+            parts.hour = minute / 60
+            parts.minute = minute % 60
             let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: true)
             let request = UNNotificationRequest(
                 identifier: "study-reminder-daily-\(index)",
-                content: content(body: message(minutes: minutes, context: context, index: index)),
+                content: content(
+                    body: message(minutes: minute, context: context, index: index, total: minutes.count)
+                ),
                 trigger: trigger
             )
             do {
@@ -147,9 +185,11 @@ enum StudyNotificationScheduler {
         guard await authorizationGranted(center) else {
             return "Notifications are off for German Vocab. Allow them in Settings → Notifications."
         }
+        let context = ReminderContext.load()
+        let body = message(minutes: 17 * 60, context: context, index: 0, total: 1)
         let request = UNNotificationRequest(
             identifier: "study-reminder-test",
-            content: content(body: "Reminders are on. This is a test."),
+            content: content(body: "Reminders are on. \(body)"),
             trigger: UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
         )
         do {
@@ -158,7 +198,7 @@ enum StudyNotificationScheduler {
             lastFailure = error.localizedDescription
             return error.localizedDescription
         }
-        return "A test reminder arrives in a few seconds."
+        return "A test reminder arrives in a few seconds on this device and on Apple Watch when the phone is locked."
     }
 
     static func nextFireDate(now: Date = Date(), calendar: Calendar = .current) -> Date? {
@@ -178,6 +218,9 @@ enum StudyNotificationScheduler {
         content.title = "German Vocab"
         content.body = body
         content.sound = .default
+        content.threadIdentifier = "german-vocab-study"
+        // Helps the watch surface the alert when the iPhone is locked.
+        content.interruptionLevel = .timeSensitive
         return content
     }
 
@@ -204,22 +247,36 @@ enum StudyNotificationScheduler {
         }
     }
 
-    private static func message(minutes: Int, context: ReminderContext, index: Int) -> String {
+    private static func message(
+        minutes: Int,
+        context: ReminderContext,
+        index: Int,
+        total: Int
+    ) -> String {
         let hour = minutes / 60
-        if context.studiedToday && hour >= 17 {
-            return "Today is done. Your streak is safe until tomorrow."
+        let remaining = max(context.goalRemaining, context.wordCount)
+        let isLaterSlot = total <= 1 ? hour >= 17 : index >= max(0, total - 1) || hour >= 17
+
+        if context.studiedToday || remaining == 0 {
+            if hour >= 17 {
+                return "Today is done. Your streak is safe until tomorrow."
+            }
+            return "Today’s goal is finished. Come back tomorrow."
         }
-        if context.streak > 0 && hour >= 17 {
-            let lines = streakLines(context.streak)
+
+        if isLaterSlot, context.streak > 0 {
+            let lines = streakLines(streak: context.streak, remaining: remaining)
             return lines[index % lines.count]
         }
-        if context.wordCount > 0 {
-            let countLine = context.wordCount == 1
-                ? "1 word is ready."
-                : "\(context.wordCount) words are ready."
+
+        if remaining > 0 {
+            let countLine = remaining == 1
+                ? "1 card left for today’s goal."
+                : "\(remaining) cards left for today’s goal."
             let lines = [countLine] + practiceLines
             return lines[index % lines.count]
         }
+
         return practiceLines[index % practiceLines.count]
     }
 
@@ -231,12 +288,13 @@ enum StudyNotificationScheduler {
         "The vocabulary can wait, but it would rather not.",
     ]
 
-    private static func streakLines(_ streak: Int) -> [String] {
+    private static func streakLines(streak: Int, remaining: Int) -> [String] {
         let days = streak == 1 ? "1-day" : "\(streak)-day"
+        let cards = remaining == 1 ? "1 card" : "\(remaining) cards"
         return [
-            "Your \(days) streak clocks out at midnight.",
+            "Your \(days) streak clocks out at midnight. \(cards) still open.",
             "One review keeps a \(days) streak from starting over.",
-            "Midnight resets \(streak) \(streak == 1 ? "day" : "days"). A single word does not.",
+            "Midnight resets \(streak) \(streak == 1 ? "day" : "days"). \(cards) left today.",
             "Your streak has shown up for \(streak) \(streak == 1 ? "day" : "days"). Your turn.",
             "The \(days) streak is fine. It is also watching the clock.",
         ]

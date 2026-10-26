@@ -16,6 +16,7 @@ enum WatchSyncKey {
     static let reminderStreak = "reminderStreak"
     static let reminderStudied = "reminderStudied"
     static let reminderWords = "reminderWords"
+    static let reminderGoal = "reminderGoal"
 }
 
 /// Compact identity for a daily queue, shared so the phone and watch compare the same value.

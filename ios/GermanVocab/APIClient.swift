@@ -36,6 +36,21 @@ final class APIClient {
         )
     }
 
+    func register(username: String, password: String, email: String?) async throws -> TokenPayload {
+        var body: [String: Any] = [
+            "username": username,
+            "password": password,
+        ]
+        if let email, !email.isEmpty {
+            body["email"] = email
+        }
+        return try await post(
+            path: "/v1/auth/register",
+            body: body,
+            token: nil
+        )
+    }
+
     func refresh(refreshToken: String) async throws -> TokenPayload {
         try await post(
             path: "/v1/auth/refresh",
@@ -110,6 +125,14 @@ final class APIClient {
 
     func word(token: String, id: String) async throws -> LexiconWord {
         try await get(path: "/v1/words/\(id)", token: token)
+    }
+
+    func exportProgress(token: String, format: ProgressExportFormat) async throws -> ProgressExportPayload {
+        try await get(
+            path: "/v1/exports/progress",
+            query: [URLQueryItem(name: "format", value: format.rawValue)],
+            token: token
+        )
     }
 
     private func makeURL(_ path: String, query: [URLQueryItem] = []) -> URL {

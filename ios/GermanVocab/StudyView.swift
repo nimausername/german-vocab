@@ -1056,9 +1056,23 @@ struct StudyView: View {
                 queue.removeFirst()
             }
             resetCardState()
+            await refreshReminderAfterReview()
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    /// Keeps phone and watch reminder copy in sync as the session shrinks.
+    private func refreshReminderAfterReview() async {
+        var context = ReminderContext.load()
+        context.wordCount = queue.count
+        context.goalRemaining = queue.count
+        if queue.isEmpty {
+            context.studiedToday = true
+        }
+        context.save()
+        await StudyNotificationScheduler.reschedule()
+        PhoneWatchBridge.shared.syncReminders()
     }
 
     private func resetCardState() {

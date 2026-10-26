@@ -8,6 +8,12 @@ const envSchema = z.object({
   KEYCLOAK_ISSUER: z.string().url(),
   KEYCLOAK_CLIENT_ID: z.string().min(1),
   KEYCLOAK_TOKEN_URL: z.string().url(),
+  /**
+   * Secret for the same confidential client used by login, refresh, and
+   * Create Account. Leave empty only while the Keycloak client is still public
+   * (login works; registration stays disabled).
+   */
+  KEYCLOAK_CLIENT_SECRET: z.string().optional().default(''),
   CORS_ORIGIN: z.string().default('*'),
 })
 
@@ -19,3 +25,7 @@ if (!parsed.success) {
 }
 
 export const config = parsed.data
+
+/** True when the API can call Keycloak with a client secret. */
+export const hasKeycloakClientSecret = (): boolean =>
+  Boolean(config.KEYCLOAK_CLIENT_SECRET.trim())

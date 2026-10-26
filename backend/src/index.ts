@@ -7,6 +7,7 @@ import { ZodError } from 'zod'
 import { config } from './config.js'
 import { AppError } from './lib/errors.js'
 import { authRoutes } from './routes/auth.js'
+import { exportRoutes } from './routes/exports.js'
 import { planRoutes } from './routes/plans.js'
 import { reviewRoutes } from './routes/reviews.js'
 import { settingsRoutes } from './routes/settings.js'
@@ -42,6 +43,7 @@ app.get('/health', (c) =>
 )
 
 app.route('/v1/auth', authRoutes)
+app.route('/v1/exports', exportRoutes)
 app.route('/v1/plans', planRoutes)
 app.route('/v1/reviews', reviewRoutes)
 app.route('/v1/stats', statsRoutes)
