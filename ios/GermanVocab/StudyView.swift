@@ -282,7 +282,7 @@ struct StudyView: View {
         switch result {
         case .full:
             return .success
-        case .partial:
+        case .partial, .caseMismatch:
             return .warning
         case .wrong, .none:
             return .error
@@ -587,27 +587,30 @@ struct StudyView: View {
             )
         case .plural:
             let expected = usablePlural(for: item) ?? item.displayNoun
-            let answerKey = ClozeSupport.normalize(answer)
-            let expectedKey = ClozeSupport.normalize(expected)
-            if answerKey == expectedKey || ClozeSupport.compactKey(answer) == ClozeSupport.compactKey(expected) {
-                return .full
+            if ClozeSupport.contentMatches(answer, expected) {
+                return ClozeSupport.casingResult(answer: answer, expected: expected)
             }
             // Accept bare plural noun when the stored form includes die.
+            let expectedKey = ClozeSupport.normalize(expected)
             let bareExpected = expectedKey.replacingOccurrences(
                 of: "^(die|der|das)\\s+",
                 with: "",
                 options: .regularExpression
             )
+            let answerKey = ClozeSupport.normalize(answer)
             if answerKey == bareExpected {
-                return .full
+                let bareDisplay = expected.replacingOccurrences(
+                    of: #"^(?i)(die|der|das)\s+"#,
+                    with: "",
+                    options: .regularExpression
+                )
+                return ClozeSupport.casingResult(answer: answer, expected: bareDisplay)
             }
             return .wrong
         case .gender:
             guard let article = item.article else { return .wrong }
-            if ClozeSupport.normalize(answer) == ClozeSupport.normalize(article) {
-                return .full
-            }
-            return .wrong
+            guard ClozeSupport.contentMatches(answer, article) else { return .wrong }
+            return ClozeSupport.casingResult(answer: answer, expected: article)
         }
     }
 
@@ -698,6 +701,8 @@ struct StudyView: View {
             switch result {
             case .full:
                 Label("Correct — \(expected)", systemImage: "checkmark.circle.fill")
+            case .caseMismatch(let correctForm):
+                Label("Almost — check capital letters: \(correctForm)", systemImage: "exclamationmark.circle.fill")
             case .partial(let missingArticle):
                 Label("Almost — include “\(missingArticle)”", systemImage: "exclamationmark.circle.fill")
             case .wrong, .none:
@@ -716,7 +721,7 @@ struct StudyView: View {
         switch result {
         case .full:
             return .green
-        case .partial:
+        case .partial, .caseMismatch:
             return .orange
         case .wrong, .none:
             return .red
@@ -758,7 +763,7 @@ struct StudyView: View {
 
             case .writeWord:
                 if wordChecked {
-                    if wordResult == .full {
+                    if wordResult?.allowsContinue == true {
                         prominentButton("Continue") {
                             wordCanvas.clear()
                             blankCanvas.clear()
@@ -782,7 +787,7 @@ struct StudyView: View {
 
             case .writeBlank:
                 if blankChecked {
-                    if blankResult == .full {
+                    if blankResult?.allowsContinue == true {
                         prominentButton("Continue") {
                             withAnimation(AppMotion.step) { stage = .rate }
                         }
@@ -904,6 +909,8 @@ struct StudyView: View {
             current.headwordWithArticle,
             current.lemma,
             current.displayNoun,
+            current.practiceDe,
+            SentencePractice.resolve(current).german,
         ]
         if let plural = usablePlural(for: current) {
             expected.append(plural)
